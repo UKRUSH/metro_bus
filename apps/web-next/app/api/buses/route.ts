@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
     // If user is Owner, only show their buses
     if (authResult && authResult.role === UserRole.OWNER) {
       query.ownerId = authResult.userId;
+      console.log('Owner fetching buses - User ID:', authResult.userId);
     } else if (ownerId && !publicAccess) {
       // Admin can filter by owner
       query.ownerId = ownerId;
@@ -77,6 +78,8 @@ export async function GET(request: NextRequest) {
         { busModel: { $regex: search, $options: 'i' } },
       ];
     }
+
+    console.log('Bus query:', JSON.stringify(query));
 
     const skip = (page - 1) * limit;
 

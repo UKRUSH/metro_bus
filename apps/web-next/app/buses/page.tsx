@@ -46,6 +46,32 @@ interface Bus {
   nextMaintenanceDate?: string;
   facilities: string[];
   createdAt: string;
+  // Extended owner registration fields
+  chassisNumber?: string;
+  engineNumber?: string;
+  routeNumbers?: string;
+  routePermitNumber?: string;
+  permitExpiryDate?: string;
+  vehicleType?: string;
+  insuranceType?: string;
+  insuranceExpiryDate?: string;
+  emissionTestCertificate?: string;
+  emissionTestExpiry?: string;
+  revenueLicenseNumber?: string;
+  revenueLicenseExpiry?: string;
+  tyreConditionFront?: string;
+  tyreConditionRear?: string;
+  brakeTestReport?: string;
+  firstAidBoxAvailable?: boolean;
+  fireExtinguisherAvailable?: boolean;
+  cctvAvailable?: boolean;
+  gpsTrackerAvailable?: boolean;
+  vehicleBookUrl?: string;
+  routePermitBookUrl?: string;
+  insuranceCertificateUrl?: string;
+  revenueLicenseScanUrl?: string;
+  fitnessReportUrl?: string;
+  status?: string;
 }
 
 export default function BusesPage() {
@@ -283,17 +309,111 @@ export default function BusesPage() {
                 <div className="mb-4 flex items-start justify-between">
                   <div>
                     <h3 className="text-lg font-bold text-gray-900">{bus.registrationNumber}</h3>
-                    <p className="text-sm text-gray-600">{bus.busType} • {bus.capacity} seats</p>
+                    <p className="text-sm text-gray-600">{bus.vehicleType || bus.busType} • {bus.capacity} seats</p>
                   </div>
-                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusColor(bus.currentStatus)}`}>
-                    {bus.currentStatus.replace('-', ' ').toUpperCase()}
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusColor(bus.status || bus.currentStatus)}`}>
+                    {(bus.status || bus.currentStatus).replace('-', ' ').toUpperCase()}
                   </span>
                 </div>
 
-                {bus.manufacturer && (
-                  <p className="mb-2 text-sm text-gray-600">
-                    {bus.manufacturer} {bus.busModel} {bus.yearOfManufacture && `(${bus.yearOfManufacture})`}
-                  </p>
+                {/* Vehicle Details */}
+                <div className="mb-3 space-y-2 border-t pt-3">
+                  {bus.chassisNumber && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Chassis:</span>
+                      <span className="font-medium text-gray-900">{bus.chassisNumber}</span>
+                    </div>
+                  )}
+                  {bus.engineNumber && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Engine:</span>
+                      <span className="font-medium text-gray-900">{bus.engineNumber}</span>
+                    </div>
+                  )}
+                  {bus.routeNumbers && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Route No:</span>
+                      <span className="font-medium text-gray-900">{bus.routeNumbers}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Insurance & Permits */}
+                <div className="mb-3 space-y-2 border-t pt-3">
+                  {bus.insuranceType && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Insurance:</span>
+                      <span className="font-medium text-gray-900 capitalize">{bus.insuranceType}</span>
+                    </div>
+                  )}
+                  {bus.insuranceExpiryDate && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Expires:</span>
+                      <span className={`font-medium ${new Date(bus.insuranceExpiryDate) < new Date() ? 'text-red-600' : 'text-green-600'}`}>
+                        {formatDate(bus.insuranceExpiryDate)}
+                      </span>
+                    </div>
+                  )}
+                  {bus.routePermitNumber && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Permit:</span>
+                      <span className="font-medium text-gray-900">{bus.routePermitNumber}</span>
+                    </div>
+                  )}
+                  {bus.revenueLicenseNumber && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Revenue License:</span>
+                      <span className="font-medium text-gray-900">{bus.revenueLicenseNumber}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Safety Features */}
+                {(bus.firstAidBoxAvailable || bus.fireExtinguisherAvailable || bus.cctvAvailable || bus.gpsTrackerAvailable) && (
+                  <div className="mb-3 border-t pt-3">
+                    <p className="mb-2 text-xs font-semibold text-gray-600">SAFETY FEATURES</p>
+                    <div className="flex flex-wrap gap-1">
+                      {bus.firstAidBoxAvailable && (
+                        <span className="rounded bg-green-100 px-2 py-1 text-xs text-green-700">First Aid</span>
+                      )}
+                      {bus.fireExtinguisherAvailable && (
+                        <span className="rounded bg-red-100 px-2 py-1 text-xs text-red-700">Fire Ext</span>
+                      )}
+                      {bus.cctvAvailable && (
+                        <span className="rounded bg-blue-100 px-2 py-1 text-xs text-blue-700">CCTV</span>
+                      )}
+                      {bus.gpsTrackerAvailable && (
+                        <span className="rounded bg-purple-100 px-2 py-1 text-xs text-purple-700">GPS</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Bus Condition */}
+                {(bus.tyreConditionFront || bus.tyreConditionRear || bus.brakeTestReport) && (
+                  <div className="mb-3 border-t pt-3">
+                    <p className="mb-2 text-xs font-semibold text-gray-600">CONDITION</p>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      {bus.tyreConditionFront && (
+                        <div className="rounded bg-gray-50 p-2">
+                          <p className="text-xs text-gray-500">Front Tyres</p>
+                          <p className="text-sm font-bold text-gray-900 capitalize">{bus.tyreConditionFront}</p>
+                        </div>
+                      )}
+                      {bus.tyreConditionRear && (
+                        <div className="rounded bg-gray-50 p-2">
+                          <p className="text-xs text-gray-500">Rear Tyres</p>
+                          <p className="text-sm font-bold text-gray-900 capitalize">{bus.tyreConditionRear}</p>
+                        </div>
+                      )}
+                      {bus.brakeTestReport && (
+                        <div className="rounded bg-gray-50 p-2">
+                          <p className="text-xs text-gray-500">Brakes</p>
+                          <p className="text-sm font-bold text-gray-900 capitalize">{bus.brakeTestReport}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
 
                 {bus.routeId && (
@@ -311,21 +431,6 @@ export default function BusesPage() {
                     <p className="text-sm font-medium text-green-900">
                       {bus.driverId.profile?.firstName} {bus.driverId.profile?.lastName || bus.driverId.email}
                     </p>
-                  </div>
-                )}
-
-                {bus.facilities && bus.facilities.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {bus.facilities.slice(0, 3).map((facility) => (
-                      <span key={facility} className="rounded bg-gray-100 px-2 py-1 text-xs text-gray-700">
-                        {facility.replace('_', ' ')}
-                      </span>
-                    ))}
-                    {bus.facilities.length > 3 && (
-                      <span className="rounded bg-gray-100 px-2 py-1 text-xs text-gray-700">
-                        +{bus.facilities.length - 3}
-                      </span>
-                    )}
                   </div>
                 )}
 

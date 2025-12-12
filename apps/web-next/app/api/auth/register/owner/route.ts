@@ -6,10 +6,17 @@ import Owner from '@/lib/models/Owner';
 import Bus from '@/lib/models/Bus';
 
 export async function POST(request: NextRequest) {
+  console.log('=== Owner Registration Started ===');
   try {
+    console.log('Connecting to database...');
     await dbConnect();
+    console.log('Database connected');
 
+    console.log('Parsing form data...');
     const formData = await request.formData();
+    
+    console.log('=== Owner Registration Request ===');
+    console.log('Form fields:', Array.from(formData.keys()));
     
     // Extract all fields from FormData
     const ownerData = {
@@ -46,7 +53,7 @@ export async function POST(request: NextRequest) {
       routePermitNumber: formData.get('routePermitNumber') as string,
       permitExpiryDate: formData.get('permitExpiryDate') as string,
       vehicleType: formData.get('vehicleType') as string,
-      capacity: parseInt(formData.get('seatingCapacity') as string),
+      capacity: formData.get('seatingCapacity') ? parseInt(formData.get('seatingCapacity') as string) : 0,
       insuranceType: formData.get('insuranceType') as string,
       insuranceExpiryDate: formData.get('insuranceExpiryDate') as string,
       emissionTestCertificate: formData.get('emissionTestCertificate') as string,
@@ -64,8 +71,17 @@ export async function POST(request: NextRequest) {
       gpsTrackerAvailable: formData.get('gpsTrackerAvailable') === 'true',
     };
 
+    console.log('Owner data:', { ...ownerData, password: '[REDACTED]' });
+    console.log('Bus data:', busData);
+
     // Validate required fields
     if (!ownerData.email || !ownerData.password || !ownerData.permanentAddress || !ownerData.mobileNumber) {
+      console.log('Missing required owner fields:', {
+        email: !!ownerData.email,
+        password: !!ownerData.password,
+        permanentAddress: !!ownerData.permanentAddress,
+        mobileNumber: !!ownerData.mobileNumber
+      });
       return NextResponse.json(
         { error: 'Missing required owner fields' },
         { status: 400 }
@@ -73,6 +89,7 @@ export async function POST(request: NextRequest) {
     }
     
     if (ownerData.ownerType === 'individual' && !ownerData.fullName) {
+      console.log('Missing fullName for individual owner');
       return NextResponse.json(
         { error: 'Full name is required for individual owners' },
         { status: 400 }
@@ -80,15 +97,22 @@ export async function POST(request: NextRequest) {
     }
     
     if (ownerData.ownerType === 'company' && !ownerData.companyName) {
+      console.log('Missing companyName for company owner');
       return NextResponse.json(
         { error: 'Company name is required for business owners' },
         { status: 400 }
       );
     }
 
-    if (!busData.registrationNumber || !busData.vehicleType || !busData.capacity) {
+    if (!busData.registrationNumber || !busData.vehicleType || !busData.capacity || isNaN(busData.capacity)) {
+      console.log('Missing required vehicle fields:', {
+        registrationNumber: !!busData.registrationNumber,
+        vehicleType: !!busData.vehicleType,
+        capacity: busData.capacity,
+        isValidCapacity: !isNaN(busData.capacity) && busData.capacity > 0
+      });
       return NextResponse.json(
-        { error: 'Missing required vehicle fields' },
+        { error: 'Missing required vehicle fields (registration number, vehicle type, or seating capacity)' },
         { status: 400 }
       );
     }
@@ -121,15 +145,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Hash password
+    console.log('Hashing password...');
     const passwordHash = await hashPassword(ownerData.password);
+    console.log('Password hashed');
 
     // Get name parts for User profile
     const displayName = ownerData.ownerType === 'individual' ? ownerData.fullName : ownerData.companyName;
-    const nameParts = displayName.trim().split(' ');
+    const nameParts = displayName?.trim().split(' ') || ['Owner'];
     const firstName = nameParts[0] || 'Owner';
     const lastName = nameParts.slice(1).join(' ') || nameParts[0] || 'User';
 
     // Create user account
+    console.log('Creating user account...');
     const user = await User.create({
       email: ownerData.email,
       passwordHash,
@@ -144,8 +171,10 @@ export async function POST(request: NextRequest) {
       isVerified: false,
       refreshTokens: []
     });
+    console.log('User created:', user._id);
 
     // Handle file uploads (placeholder for now)
+    console.log('Processing file uploads...');
     const ownerPhoto = formData.get('ownerPhoto') as File;
     const vehicleBookCopy = formData.get('vehicleBookCopy') as File;
     const routePermitBookCopy = formData.get('routePermitBookCopy') as File;
@@ -162,6 +191,7 @@ export async function POST(request: NextRequest) {
     const fitnessReportUrl = fitnessReport ? `/uploads/buses/${busData.registrationNumber}/fitness.pdf` : '';
 
     // Create owner profile
+    console.log('Creating owner profile...');
     const owner = await Owner.create({
       userId: user._id,
       ownerType: ownerData.ownerType,
@@ -179,13 +209,16 @@ export async function POST(request: NextRequest) {
       status: 'pending',
       totalBuses: 1
     });
+    console.log('Owner created:', owner._id);
 
     // Create bus record
+    console.log('Creating bus record...');
+    console.log('Bus data:', busData);
     const bus = await Bus.create({
       registrationNumber: busData.registrationNumber,
       chassisNumber: busData.chassisNumber,
       engineNumber: busData.engineNumber,
-      ownerId: owner._id,
+      ownerId: user._id, // Use User ID, not Owner ID
       routeNumbers: busData.routeNumbers,
       routePermitNumber: busData.routePermitNumber,
       permitExpiryDate: new Date(busData.permitExpiryDate),
@@ -213,6 +246,8 @@ export async function POST(request: NextRequest) {
       fitnessReportUrl,
       status: 'pending'
     });
+    console.log('Bus created:', bus._id);
+    console.log('=== Registration Successful ===');
 
     return NextResponse.json({
       success: true,
@@ -230,6 +265,12 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Owner registration error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      name: error.name
+    });
     
     if (error.code === 11000) {
       return NextResponse.json(
@@ -239,7 +280,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: 'Registration failed. Please try again.' },
+      { error: `Registration failed: ${error.message}` },
       { status: 500 }
     );
   }

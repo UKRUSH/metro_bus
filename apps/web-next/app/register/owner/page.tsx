@@ -79,7 +79,59 @@ export default function OwnerRegistrationPage() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
     const file = e.target.files?.[0] || null;
+    
+    if (file) {
+      // Validate file type and size
+      const validImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      const validDocTypes = ['application/pdf'];
+      const validTypes = [...validImageTypes, ...validDocTypes];
+      
+      if (!validTypes.includes(file.type)) {
+        setError(`Invalid file type for ${fieldName}. Only JPG, PNG, WebP images and PDF documents are allowed.`);
+        e.target.value = ''; // Clear the input
+        return;
+      }
+      
+      // Check file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (file.size > maxSize) {
+        setError(`File size for ${fieldName} exceeds 5MB. Please upload a smaller file.`);
+        e.target.value = ''; // Clear the input
+        return;
+      }
+    }
+    
     setFormData(prev => ({ ...prev, [fieldName]: file }));
+  };
+
+  // Validation helper functions
+  const validatePhoneNumber = (phone: string): boolean => {
+    // Sri Lankan phone number format: 10 digits starting with 0
+    const phoneRegex = /^0\d{9}$/;
+    return phoneRegex.test(phone);
+  };
+
+  const validateNIC = (nic: string): boolean => {
+    // Old NIC: 9 digits + V/X, New NIC: 12 digits
+    const oldNICRegex = /^\d{9}[VvXx]$/;
+    const newNICRegex = /^\d{12}$/;
+    return oldNICRegex.test(nic) || newNICRegex.test(nic);
+  };
+
+  const validateVehicleRegistration = (regNo: string): boolean => {
+    // Sri Lankan vehicle registration format: ABC-1234 or AB-1234 or ABC1234
+    const regNoRegex = /^[A-Z]{2,3}[-]?\d{4}$/i;
+    return regNoRegex.test(regNo);
+  };
+
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validateBRNumber = (brNo: string): boolean => {
+    // Business registration number format (flexible)
+    return brNo.length >= 5 && /^[A-Z0-9]+$/i.test(brNo);
   };
 
   const validateStep1 = () => {
@@ -87,14 +139,49 @@ export default function OwnerRegistrationPage() {
       setError('Please fill all required owner identification fields');
       return false;
     }
-    if (formData.ownerType === 'individual' && !formData.fullName) {
-      setError('Full name is required for individual owners');
+    
+    // Validate phone number format
+    if (!validatePhoneNumber(formData.mobileNumber)) {
+      setError('Invalid mobile number format. Must be 10 digits starting with 0 (e.g., 0771234567)');
       return false;
     }
-    if (formData.ownerType === 'company' && !formData.companyName) {
-      setError('Company name is required for business owners');
+    
+    // Validate email format
+    if (!validateEmail(formData.email)) {
+      setError('Invalid email address format');
       return false;
     }
+    
+    // Validate emergency contact if provided
+    if (formData.emergencyContactNumber && !validatePhoneNumber(formData.emergencyContactNumber)) {
+      setError('Invalid emergency contact number format. Must be 10 digits starting with 0');
+      return false;
+    }
+    
+    if (formData.ownerType === 'individual') {
+      if (!formData.fullName) {
+        setError('Full name is required for individual owners');
+        return false;
+      }
+      // Validate NIC if provided
+      if (formData.nicNumber && !validateNIC(formData.nicNumber)) {
+        setError('Invalid NIC format. Must be 9 digits + V/X (old) or 12 digits (new)');
+        return false;
+      }
+    }
+    
+    if (formData.ownerType === 'company') {
+      if (!formData.companyName) {
+        setError('Company name is required for business owners');
+        return false;
+      }
+      // Validate BR number if provided
+      if (formData.brNumber && !validateBRNumber(formData.brNumber)) {
+        setError('Invalid Business Registration number format');
+        return false;
+      }
+    }
+    
     return true;
   };
 
@@ -103,6 +190,45 @@ export default function OwnerRegistrationPage() {
       setError('Please fill all required vehicle details');
       return false;
     }
+    
+    // Validate vehicle registration number format
+    if (!validateVehicleRegistration(formData.busRegistrationNumber)) {
+      setError('Invalid vehicle registration number format. Must be in format ABC-1234 or AB-1234');
+      return false;
+    }
+    
+    // Validate seating capacity
+    const capacity = parseInt(formData.seatingCapacity);
+    if (isNaN(capacity) || capacity < 10 || capacity > 100) {
+      setError('Seating capacity must be between 10 and 100');
+      return false;
+    }
+    
+    // Validate dates if provided
+    if (formData.permitExpiryDate) {
+      const permitDate = new Date(formData.permitExpiryDate);
+      if (permitDate < new Date()) {
+        setError('Route permit expiry date cannot be in the past');
+        return false;
+      }
+    }
+    
+    if (formData.insuranceExpiryDate) {
+      const insuranceDate = new Date(formData.insuranceExpiryDate);
+      if (insuranceDate < new Date()) {
+        setError('Insurance expiry date cannot be in the past');
+        return false;
+      }
+    }
+    
+    if (formData.revenueLicenseExpiry) {
+      const revenueDate = new Date(formData.revenueLicenseExpiry);
+      if (revenueDate < new Date()) {
+        setError('Revenue license expiry date cannot be in the past');
+        return false;
+      }
+    }
+    
     return true;
   };
 
@@ -397,6 +523,7 @@ export default function OwnerRegistrationPage() {
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
+                      placeholder="owner@example.com"
                       className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-green-500 focus:outline-none"
                       required
                     />
@@ -429,10 +556,11 @@ export default function OwnerRegistrationPage() {
                     <label className="block text-sm font-medium text-gray-700">Owner Photo / Company Logo</label>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
                       onChange={(e) => handleFileChange(e, 'ownerPhoto')}
                       className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-green-500 focus:outline-none"
                     />
+                    <p className="mt-1 text-xs text-gray-500">Accepted: JPG, PNG, WebP, PDF (Max 5MB)</p>
                   </div>
                 </div>
 
@@ -462,10 +590,11 @@ export default function OwnerRegistrationPage() {
                       name="busRegistrationNumber"
                       value={formData.busRegistrationNumber}
                       onChange={handleInputChange}
-                      placeholder="NC-1234 or CP-5678"
-                      className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-green-500 focus:outline-none"
+                      placeholder="ABC-1234 or AB-5678"
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 uppercase focus:border-green-500 focus:outline-none"
                       required
                     />
+                    <p className="mt-1 text-xs text-gray-500">Format: ABC-1234 or AB-1234</p>
                   </div>
 
                   <div>
@@ -780,47 +909,51 @@ export default function OwnerRegistrationPage() {
                       <label className="block text-sm font-medium text-gray-700">Vehicle Book Copy *</label>
                       <input
                         type="file"
-                        accept="image/*,application/pdf"
+                        accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
                         onChange={(e) => handleFileChange(e, 'vehicleBookCopy')}
                         className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-green-500 focus:outline-none"
                       />
+                      <p className="mt-1 text-xs text-gray-500">JPG, PNG, WebP, PDF (Max 5MB)</p>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Route Permit Book *</label>
                       <input
                         type="file"
-                        accept="image/*,application/pdf"
+                        accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
                         onChange={(e) => handleFileChange(e, 'routePermitBookCopy')}
                         className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-green-500 focus:outline-none"
                       />
+                      <p className="mt-1 text-xs text-gray-500">JPG, PNG, WebP, PDF (Max 5MB)</p>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Insurance Certificate *</label>
                       <input
                         type="file"
-                        accept="image/*,application/pdf"
+                        accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
                         onChange={(e) => handleFileChange(e, 'insuranceCertificate')}
                         className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-green-500 focus:outline-none"
                       />
+                      <p className="mt-1 text-xs text-gray-500">JPG, PNG, WebP, PDF (Max 5MB)</p>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Revenue License Scan *</label>
                       <input
                         type="file"
-                        accept="image/*,application/pdf"
+                        accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
                         onChange={(e) => handleFileChange(e, 'revenueLicenseScan')}
                         className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-green-500 focus:outline-none"
                       />
+                      <p className="mt-1 text-xs text-gray-500">JPG, PNG, WebP, PDF (Max 5MB)</p>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Bus Fitness Report</label>
                       <input
                         type="file"
-                        accept="image/*,application/pdf"
+                        accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
                         onChange={(e) => handleFileChange(e, 'fitnessReport')}
                         className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-green-500 focus:outline-none"
                       />
