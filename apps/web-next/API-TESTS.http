@@ -1,0 +1,86 @@
+# API Testing Script for Authentication System
+
+## Base URL
+API_URL=http://localhost:3000/api
+
+## Test Authentication Endpoints
+
+### 1. Register a new passenger user
+POST {{API_URL}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "passenger@test.com",
+  "password": "Password123",
+  "phone": "0771234567",
+  "firstName": "John",
+  "lastName": "Doe"
+}
+
+### 2. Register an admin user
+POST {{API_URL}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "admin@metro.com",
+  "password": "Admin123",
+  "phone": "0771234568",
+  "firstName": "Admin",
+  "lastName": "User",
+  "role": "admin"
+}
+
+### 3. Register a driver
+POST {{API_URL}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "driver@metro.com",
+  "password": "Driver123",
+  "phone": "0771234569",
+  "firstName": "Driver",
+  "lastName": "Smith",
+  "role": "driver"
+}
+
+### 4. Login
+POST {{API_URL}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "passenger@test.com",
+  "password": "Password123"
+}
+
+### 5. Get current user (requires access token)
+GET {{API_URL}}/auth/me
+Authorization: Bearer YOUR_ACCESS_TOKEN_HERE
+
+### 6. Refresh token
+POST {{API_URL}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "YOUR_REFRESH_TOKEN_HERE"
+}
+
+### 7. Logout
+POST {{API_URL}}/auth/logout
+Authorization: Bearer YOUR_ACCESS_TOKEN_HERE
+Content-Type: application/json
+
+{
+  "refreshToken": "YOUR_REFRESH_TOKEN_HERE"
+}
+
+### 8. Get all users (Admin only)
+GET {{API_URL}}/users?page=1&limit=20
+Authorization: Bearer YOUR_ADMIN_ACCESS_TOKEN_HERE
+
+### 9. Search users by role
+GET {{API_URL}}/users?role=passenger&page=1
+Authorization: Bearer YOUR_ADMIN_ACCESS_TOKEN_HERE
+
+### 10. Search users by name or email
+GET {{API_URL}}/users?search=john&page=1
+Authorization: Bearer YOUR_ADMIN_ACCESS_TOKEN_HERE

@@ -1,26 +1,32 @@
 {
-  "name": "metro_bus",
+  "name": "metro-bus-system",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "next": "16.0.5",
-    "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "dev": "pnpm --parallel dev",
+    "dev:web": "pnpm --filter @metro/web-next dev",
+    "dev:admin": "pnpm --filter @metro/admin-vite dev",
+    "build": "pnpm --recursive build",
+    "build:web": "pnpm --filter @metro/web-next build",
+    "build:admin": "pnpm --filter @metro/admin-vite build",
+    "lint": "pnpm --recursive lint",
+    "typecheck": "pnpm --recursive typecheck",
+    "clean": "pnpm --recursive exec rm -rf node_modules dist .next",
+    "install-all": "pnpm install"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.0.5",
-    "tailwindcss": "^4",
+    "prettier": "^3.3.3",
     "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3"
   }
 }

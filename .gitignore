@@ -1,7 +1,13 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Environment variables
+apps/web-next/.env.local
+apps/admin-vite/.env
+.env
+.env.local
+.env.*.local
 
-# dependencies
-/node_modules
+# Dependencies
+node_modules/
+.pnpm-store/
 /.pnp
 .pnp.*
 .yarn/*
@@ -10,14 +16,17 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
+# Build outputs
+dist/
+.next/
+out/
+build/
+
+# Testing
 /coverage
+.nyc_output/
 
-# next.js
-/.next/
-/out/
-
-# production
+# next.js production
 /build
 
 # misc
