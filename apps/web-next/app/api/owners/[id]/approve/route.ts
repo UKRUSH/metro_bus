@@ -8,7 +8,7 @@ import { UserRole } from '@metro/shared';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authResult = requireAuth([UserRole.ADMIN])(request);
@@ -16,9 +16,10 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { id } = await params;
     await dbConnect();
 
-    const owner = await Owner.findById(params.id);
+    const owner = await Owner.findById(id);
     if (!owner) {
       return NextResponse.json({ error: 'Owner not found' }, { status: 404 });
     }

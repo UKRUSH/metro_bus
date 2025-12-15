@@ -56,7 +56,10 @@ export default function LoginPage() {
 
     try {
       await login(formData.email, formData.password);
-      router.push('/dashboard');
+      // Get the return URL from localStorage or default to dashboard
+      const returnUrl = localStorage.getItem('returnUrl') || '/dashboard';
+      localStorage.removeItem('returnUrl');
+      router.replace(returnUrl);
     } catch (error: any) {
       setApiError(error.message || 'Login failed. Please check your credentials.');
     } finally {

@@ -149,6 +149,64 @@ export async function PUT(
   }
 }
 
+// PATCH /api/users/:id - Update user status (admin only)
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const authResult = authenticateRequest(request);
+    if (!authResult) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Only admins can update user status
+    if (authResult.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden' },
+        { status: 403 }
+      );
+    }
+
+    const params = await context.params;
+    const body = await request.json();
+
+    await connectDB();
+
+    const updateData: any = {};
+    if (body.isActive !== undefined) updateData.isActive = body.isActive;
+    if (body.isVerified !== undefined) updateData.isVerified = body.isVerified;
+
+    const user = await User.findByIdAndUpdate(
+      params.id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).select('-passwordHash -refreshToken');
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: { user },
+      message: 'User status updated successfully',
+    });
+  } catch (error: any) {
+    console.error('Update user status error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
 // DELETE /api/users/:id - Delete user account
 export async function DELETE(
   request: NextRequest,

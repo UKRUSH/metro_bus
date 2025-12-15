@@ -41,6 +41,26 @@ export const createBusSchema = z.object({
   maintenanceNotes: z.string().trim().max(500).optional(),
   facilities: z.array(facilitiesEnum).optional().default([]),
   currentStatus: busStatusSchema.optional(),
+  // Extended owner registration fields
+  chassisNumber: z.string().trim().max(50).optional(),
+  engineNumber: z.string().trim().max(50).optional(),
+  routeNumbers: z.string().trim().max(100).optional(),
+  routePermitNumber: z.string().trim().max(50).optional(),
+  permitExpiryDate: z.string().datetime().or(z.date()).optional(),
+  vehicleType: z.string().trim().max(50).optional(),
+  insuranceType: z.string().trim().max(50).optional(),
+  insuranceExpiryDate: z.string().datetime().or(z.date()).optional(),
+  emissionTestCertificate: z.string().trim().max(100).optional(),
+  emissionTestExpiry: z.string().datetime().or(z.date()).optional(),
+  revenueLicenseNumber: z.string().trim().max(50).optional(),
+  revenueLicenseExpiry: z.string().datetime().or(z.date()).optional(),
+  tyreConditionFront: z.string().trim().max(50).optional(),
+  tyreConditionRear: z.string().trim().max(50).optional(),
+  brakeTestReport: z.string().trim().max(50).optional(),
+  firstAidBoxAvailable: z.boolean().optional(),
+  fireExtinguisherAvailable: z.boolean().optional(),
+  cctvAvailable: z.boolean().optional(),
+  gpsTrackerAvailable: z.boolean().optional(),
 });
 
 export const updateBusSchema = z.object({
@@ -65,6 +85,26 @@ export const updateBusSchema = z.object({
   currentStatus: busStatusSchema.optional(),
   driverId: idSchema.optional().nullable(),
   routeId: idSchema.optional().nullable(),
+  // Extended owner registration fields
+  chassisNumber: z.string().trim().max(50).optional(),
+  engineNumber: z.string().trim().max(50).optional(),
+  routeNumbers: z.string().trim().max(100).optional(),
+  routePermitNumber: z.string().trim().max(50).optional(),
+  permitExpiryDate: z.string().datetime().or(z.date()).optional(),
+  vehicleType: z.string().trim().max(50).optional(),
+  insuranceType: z.string().trim().max(50).optional(),
+  insuranceExpiryDate: z.string().datetime().or(z.date()).optional(),
+  emissionTestCertificate: z.string().trim().max(100).optional(),
+  emissionTestExpiry: z.string().datetime().or(z.date()).optional(),
+  revenueLicenseNumber: z.string().trim().max(50).optional(),
+  revenueLicenseExpiry: z.string().datetime().or(z.date()).optional(),
+  tyreConditionFront: z.string().trim().max(50).optional(),
+  tyreConditionRear: z.string().trim().max(50).optional(),
+  brakeTestReport: z.string().trim().max(50).optional(),
+  firstAidBoxAvailable: z.boolean().optional(),
+  fireExtinguisherAvailable: z.boolean().optional(),
+  cctvAvailable: z.boolean().optional(),
+  gpsTrackerAvailable: z.boolean().optional(),
 });
 
 export const maintenanceReportSchema = z.object({

@@ -28,7 +28,11 @@ export interface IBus extends Document {
   heading?: number; // degrees (0-359)
   lastLocationUpdate?: Date;
   facilities: string[]; // ['wifi', 'ac', 'wheelchair_accessible']
-  currentStatus: 'available' | 'in-service' | 'maintenance' | 'retired';
+  currentStatus: 'pending' | 'available' | 'in-service' | 'maintenance' | 'retired' | 'rejected';
+  approvalStatus: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
+  approvedBy?: mongoose.Types.ObjectId;
+  approvedAt?: Date;
   
   // Extended fields for owner registration
   chassisNumber?: string;
@@ -169,9 +173,25 @@ const BusSchema = new Schema<IBus>(
     },
     currentStatus: {
       type: String,
-      enum: ['available', 'in-service', 'maintenance', 'retired'],
-      default: 'available',
+      enum: ['pending', 'available', 'in-service', 'maintenance', 'retired', 'rejected'],
+      default: 'pending',
       index: true,
+    },
+    approvalStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending',
+    },
+    rejectionReason: {
+      type: String,
+      trim: true,
+    },
+    approvedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    approvedAt: {
+      type: Date,
     },
     // Extended fields for owner registration
     chassisNumber: {
@@ -195,7 +215,7 @@ const BusSchema = new Schema<IBus>(
     },
     vehicleType: {
       type: String,
-      enum: ['ac', 'non-ac', 'semi-luxury', 'normal'],
+      trim: true,
     },
     insuranceType: {
       type: String,

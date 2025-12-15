@@ -17,10 +17,12 @@ export enum BookingStatus {
 }
 
 export enum BusStatus {
-  ACTIVE = 'active',
+  PENDING = 'pending',
+  AVAILABLE = 'available',
+  IN_SERVICE = 'in-service',
   MAINTENANCE = 'maintenance',
-  INACTIVE = 'inactive',
-  OUT_OF_SERVICE = 'out_of_service',
+  RETIRED = 'retired',
+  REJECTED = 'rejected',
 }
 
 export enum DriverStatus {

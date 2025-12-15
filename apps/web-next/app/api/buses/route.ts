@@ -3,6 +3,7 @@ import connectDB from '@/lib/mongodb';
 import Bus from '@/lib/models/Bus';
 import { authenticateRequest, hasRole } from '@/lib/auth/middleware';
 import { UserRole, createBusSchema } from '@metro/shared';
+import mongoose from 'mongoose';
 
 // GET /api/buses - List all buses with filters
 export async function GET(request: NextRequest) {
@@ -42,11 +43,17 @@ export async function GET(request: NextRequest) {
 
     // If user is Owner, only show their buses
     if (authResult && authResult.role === UserRole.OWNER) {
-      query.ownerId = authResult.userId;
-      console.log('Owner fetching buses - User ID:', authResult.userId);
+      // Convert string userId to ObjectId for MongoDB query
+      query.ownerId = new mongoose.Types.ObjectId(authResult.userId);
+      console.log('Owner fetching buses:', {
+        userId: authResult.userId,
+        ownerIdQuery: query.ownerId,
+        role: authResult.role,
+        email: authResult.email
+      });
     } else if (ownerId && !publicAccess) {
       // Admin can filter by owner
-      query.ownerId = ownerId;
+      query.ownerId = new mongoose.Types.ObjectId(ownerId);
     }
 
     // Public access: only show in-service buses
@@ -64,7 +71,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (routeId) {
-      query.routeId = routeId;
+      query.routeId = new mongoose.Types.ObjectId(routeId);
     }
 
     if (isActive !== null && isActive !== undefined) {
@@ -93,6 +100,11 @@ export async function GET(request: NextRequest) {
         .limit(limit),
       Bus.countDocuments(query),
     ]);
+
+    console.log(`Found ${buses.length} buses for query:`, query);
+    if (buses.length > 0) {
+      console.log('Sample bus ownerId:', buses[0].ownerId);
+    }
 
     return NextResponse.json({
       success: true,
@@ -158,6 +170,11 @@ export async function POST(request: NextRequest) {
       data.ownerId = authResult.userId;
     }
 
+    // Convert ownerId to ObjectId if present
+    if (data.ownerId) {
+      data.ownerId = new mongoose.Types.ObjectId(data.ownerId) as any;
+    }
+
     // Check if registration number already exists
     const existingBus = await Bus.findOne({
       registrationNumber: data.registrationNumber,
@@ -190,6 +207,8 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: any) {
     console.error('Error creating bus:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
     
     if (error.code === 11000) {
       return NextResponse.json(
@@ -199,7 +218,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: 'Failed to create bus' },
+      { error: error.message || 'Failed to create bus' },
       { status: 500 }
     );
   }

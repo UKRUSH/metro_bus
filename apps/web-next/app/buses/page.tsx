@@ -42,6 +42,8 @@ interface Bus {
   routeId?: Route;
   isActive: boolean;
   currentStatus: 'available' | 'in-service' | 'maintenance' | 'retired';
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
   lastMaintenanceDate?: string;
   nextMaintenanceDate?: string;
   facilities: string[];
@@ -76,22 +78,27 @@ interface Bus {
 
 export default function BusesPage() {
   const router = useRouter();
-  const { tokens, isAuthenticated, user } = useAuth();
+  const { tokens, isAuthenticated, user, isLoading: authLoading } = useAuth();
   const [buses, setBuses] = useState<Bus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [busTypeFilter, setBusTypeFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [updatingAvailability, setUpdatingAvailability] = useState<string | null>(null);
 
   const isAdmin = user?.role === 'admin';
   const isOwner = user?.role === 'owner';
 
   useEffect(() => {
+    // Don't redirect while auth is loading
+    if (authLoading) {
+      return;
+    }
+
     if (!isAuthenticated) {
       router.push('/login');
       return;
@@ -103,7 +110,7 @@ export default function BusesPage() {
     }
 
     fetchBuses();
-  }, [isAuthenticated, isAdmin, isOwner, router, statusFilter, busTypeFilter, searchTerm]);
+  }, [authLoading, isAuthenticated, isAdmin, isOwner, router, statusFilter, busTypeFilter, searchTerm]);
 
   const fetchBuses = async () => {
     if (!tokens?.accessToken) {
@@ -132,6 +139,10 @@ export default function BusesPage() {
       }
 
       const data = await response.json();
+      console.log('Fetched buses data:', data.data.buses);
+      if (data.data.buses && data.data.buses.length > 0) {
+        console.log('First bus details:', JSON.stringify(data.data.buses[0], null, 2));
+      }
       setBuses(data.data.buses || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -163,6 +174,51 @@ export default function BusesPage() {
     });
   };
 
+  const toggleBusAvailability = async (busId: string, currentStatus: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (!tokens?.accessToken) return;
+    
+    setUpdatingAvailability(busId);
+    
+    try {
+      const newStatus = currentStatus === 'available' ? 'maintenance' : 'available';
+      
+      const response = await fetch(`/api/buses/${busId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${tokens.accessToken}`,
+        },
+        body: JSON.stringify({
+          currentStatus: newStatus,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update bus status');
+      }
+
+      setNotification({
+        type: 'success',
+        message: `Bus ${newStatus === 'available' ? 'marked as available' : 'marked as unavailable'}`,
+      });
+
+      // Refresh buses
+      await fetchBuses();
+      setTimeout(() => setNotification(null), 3000);
+    } catch (error) {
+      console.error('Error updating bus availability:', error);
+      setNotification({
+        type: 'error',
+        message: 'Failed to update bus availability',
+      });
+      setTimeout(() => setNotification(null), 3000);
+    } finally {
+      setUpdatingAvailability(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -182,15 +238,15 @@ export default function BusesPage() {
                 <p className="text-sm text-gray-600">{buses.length} total buses</p>
               </div>
             </div>
-            <button
-              onClick={() => setShowCreateModal(true)}
+            <Link
+              href="/buses/new"
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 flex items-center gap-2"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               Add New Bus
-            </button>
+            </Link>
           </div>
         </div>
       </header>
@@ -289,12 +345,12 @@ export default function BusesPage() {
             </svg>
             <h3 className="mt-4 text-xl font-semibold text-gray-900">No buses found</h3>
             <p className="mt-2 text-gray-600">Add your first bus to get started</p>
-            <button
-              onClick={() => setShowCreateModal(true)}
+            <Link
+              href="/buses/new"
               className="mt-6 inline-block rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700"
             >
               Add Bus
-            </button>
+            </Link>
           </div>
         )}
 
@@ -310,10 +366,50 @@ export default function BusesPage() {
                   <div>
                     <h3 className="text-lg font-bold text-gray-900">{bus.registrationNumber}</h3>
                     <p className="text-sm text-gray-600">{bus.vehicleType || bus.busType} • {bus.capacity} seats</p>
+                    {bus.approvalStatus && (
+                      <div className="mt-1 flex items-center gap-2">
+                        {bus.approvalStatus === 'approved' && (
+                          <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-bold text-green-800">
+                            ✅ Approved
+                          </span>
+                        )}
+                        {bus.approvalStatus === 'pending' && (
+                          <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-bold text-yellow-800">
+                            ⏳ Pending Approval
+                          </span>
+                        )}
+                        {bus.approvalStatus === 'rejected' && (
+                          <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-bold text-red-800">
+                            ❌ Rejected
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusColor(bus.status || bus.currentStatus)}`}>
-                    {(bus.status || bus.currentStatus).replace('-', ' ').toUpperCase()}
-                  </span>
+                  <div className="flex flex-col items-end gap-2">
+                    {isOwner && bus.approvalStatus === 'approved' ? (
+                      <button
+                        onClick={(e) => toggleBusAvailability(bus._id, bus.currentStatus, e)}
+                        disabled={updatingAvailability === bus._id}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          bus.currentStatus === 'available'
+                            ? 'bg-green-500'
+                            : 'bg-gray-300'
+                        } ${updatingAvailability === bus._id ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
+                        title={updatingAvailability === bus._id ? 'Updating...' : (bus.currentStatus === 'available' ? 'Bus is Available - Click to mark Unavailable' : 'Bus is Unavailable - Click to mark Available')}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            bus.currentStatus === 'available' ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    ) : (
+                      <span className={`rounded px-3 py-1 text-xs font-semibold ${getStatusColor(bus.status || bus.currentStatus)}`}>
+                        {(bus.status || bus.currentStatus).replace('-', ' ').toUpperCase()}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Vehicle Details */}
@@ -435,27 +531,51 @@ export default function BusesPage() {
                 )}
 
                 {(isAdmin || isOwner) && (
-                  <div className="mt-4 flex gap-2 border-t pt-4">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedBus(bus);
-                        setShowEditModal(true);
-                      }}
-                      className="flex-1 rounded-lg bg-blue-100 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-200"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedBus(bus);
-                        setShowDeleteModal(true);
-                      }}
-                      className="flex-1 rounded-lg bg-red-100 py-2 text-sm font-semibold text-red-600 hover:bg-red-200"
-                    >
-                      Delete
-                    </button>
+                  <div className="mt-4 flex flex-col gap-2 border-t pt-4">
+                    {isOwner && bus.approvalStatus === 'approved' && (
+                      <button
+                        onClick={(e) => toggleBusAvailability(bus._id, bus.currentStatus, e)}
+                        disabled={updatingAvailability === bus._id}
+                        className={`w-full rounded-lg py-2 text-sm font-semibold transition-all ${
+                          bus.currentStatus === 'available'
+                            ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                            : 'bg-green-100 text-green-700 hover:bg-green-200'
+                        } ${updatingAvailability === bus._id ? 'opacity-50 cursor-wait' : ''}`}
+                      >
+                        {updatingAvailability === bus._id ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Updating...
+                          </span>
+                        ) : bus.currentStatus === 'available' ? (
+                          '🔴 Mark as Unavailable'
+                        ) : (
+                          '🟢 Mark as Available'
+                        )}
+                      </button>
+                    )}
+                    <div className="flex gap-2">
+                      <Link
+                        href={`/buses/${bus._id}/edit`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-1 rounded-lg bg-blue-100 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-200 text-center"
+                      >
+                        Edit
+                      </Link>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedBus(bus);
+                          setShowDeleteModal(true);
+                        }}
+                        className="flex-1 rounded-lg bg-red-100 py-2 text-sm font-semibold text-red-600 hover:bg-red-200"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -464,7 +584,116 @@ export default function BusesPage() {
         )}
       </main>
 
-      {/* TODO: Add Create, Edit, and Delete Modals */}
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedBus && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="rounded-full bg-red-100 p-3">
+                <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Delete Bus</h3>
+                <p className="text-sm text-gray-600">This action cannot be undone</p>
+              </div>
+            </div>
+            
+            <p className="text-gray-700 mb-6">
+              Are you sure you want to delete bus <span className="font-bold">{selectedBus.registrationNumber}</span>?
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setSelectedBus(null);
+                }}
+                className="flex-1 rounded-lg border-2 border-gray-300 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`/api/buses/${selectedBus._id}`, {
+                      method: 'DELETE',
+                      headers: {
+                        Authorization: `Bearer ${tokens?.accessToken}`,
+                      },
+                    });
+
+                    if (!response.ok) {
+                      const data = await response.json();
+                      throw new Error(data.error || 'Failed to delete bus');
+                    }
+
+                    // Show success notification
+                    setNotification({
+                      type: 'success',
+                      message: `Bus ${selectedBus.registrationNumber} deleted successfully!`
+                    });
+                    
+                    // Hide notification after 3 seconds
+                    setTimeout(() => setNotification(null), 3000);
+
+                    // Refresh the bus list
+                    await fetchBuses();
+                    setShowDeleteModal(false);
+                    setSelectedBus(null);
+                  } catch (err) {
+                    // Show error notification
+                    setNotification({
+                      type: 'error',
+                      message: err instanceof Error ? err.message : 'Failed to delete bus'
+                    });
+                    
+                    // Hide notification after 3 seconds
+                    setTimeout(() => setNotification(null), 3000);
+                    
+                    setShowDeleteModal(false);
+                    setSelectedBus(null);
+                  }
+                }}
+                className="flex-1 rounded-lg bg-red-600 px-4 py-2 font-semibold text-white hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notification Toast */}
+      {notification && (
+        <div className="fixed top-4 right-4 z-50 animate-slide-in-right">
+          <div className={`rounded-xl shadow-2xl px-6 py-4 flex items-center gap-3 min-w-[300px] ${
+            notification.type === 'success' 
+              ? 'bg-green-500 text-white' 
+              : 'bg-red-500 text-white'
+          }`}>
+            {notification.type === 'success' ? (
+              <svg className="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            ) : (
+              <svg className="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+            <span className="font-semibold">{notification.message}</span>
+            <button
+              onClick={() => setNotification(null)}
+              className="ml-auto hover:opacity-75 transition-opacity"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
