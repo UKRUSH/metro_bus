@@ -13,6 +13,10 @@
   },
   "dependencies": {
     "@metro/shared": "workspace:*",
+    "@tensorflow-models/face-landmarks-detection": "^1.0.2",
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-backend-webgl": "^4.22.0",
+    "@tensorflow/tfjs-core": "^4.22.0",
     "bcryptjs": "^2.4.3",
     "date-fns": "^4.1.0",
     "jsonwebtoken": "^9.0.2",
