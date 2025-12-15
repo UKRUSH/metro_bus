@@ -146,10 +146,10 @@ export default function EditProfilePage() {
 
   if (isLoading || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-3 text-sm text-gray-600">Loading...</p>
         </div>
       </div>
     );
@@ -158,36 +158,49 @@ export default function EditProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow">
-        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+      <header className="bg-white shadow border-b border-gray-200">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
             <Link
               href="/profile"
-              className="text-gray-600 hover:text-gray-900"
+              className="text-gray-600 hover:text-gray-900 transition-colors"
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </Link>
-            <h1 className="text-2xl font-bold text-gray-900">Edit Profile</h1>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Edit Profile</h1>
+              <p className="text-sm text-gray-500 mt-1">Update your personal information</p>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="rounded-lg bg-white p-6 shadow">
+        <div className="rounded-lg bg-white p-8 shadow border border-gray-200">
           {/* Success Message */}
           {successMessage && (
-            <div className="mb-6 rounded-lg bg-green-50 p-4 text-sm text-green-600">
-              {successMessage}
+            <div className="mb-6 rounded-lg bg-green-50 p-4 border-l-4 border-green-500">
+              <div className="flex items-center gap-3">
+                <svg className="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <p className="text-sm font-medium text-green-800">{successMessage}</p>
+              </div>
             </div>
           )}
 
           {/* Error Message */}
           {apiError && (
-            <div className="mb-6 rounded-lg bg-red-50 p-4 text-sm text-red-600">
-              {apiError}
+            <div className="mb-6 rounded-lg bg-red-50 p-4 border-l-4 border-red-500">
+              <div className="flex items-center gap-3">
+                <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <p className="text-sm font-medium text-red-800">{apiError}</p>
+              </div>
             </div>
           )}
 
@@ -196,7 +209,7 @@ export default function EditProfilePage() {
             {/* Name Row */}
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
                   First Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -207,15 +220,21 @@ export default function EditProfilePage() {
                   onChange={handleChange}
                   className={`mt-1 block w-full rounded-lg border ${
                     errors.firstName ? 'border-red-300' : 'border-gray-300'
-                  } px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500`}
+                  } px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all`}
+                  placeholder="Enter first name"
                 />
                 {errors.firstName && (
-                  <p className="mt-1 text-xs text-red-600">{errors.firstName}</p>
+                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {errors.firstName}
+                  </p>
                 )}
               </div>
 
               <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
                   Last Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -226,10 +245,16 @@ export default function EditProfilePage() {
                   onChange={handleChange}
                   className={`mt-1 block w-full rounded-lg border ${
                     errors.lastName ? 'border-red-300' : 'border-gray-300'
-                  } px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500`}
+                  } px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all`}
+                  placeholder="Enter last name"
                 />
                 {errors.lastName && (
-                  <p className="mt-1 text-xs text-red-600">{errors.lastName}</p>
+                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {errors.lastName}
+                  </p>
                 )}
               </div>
             </div>
@@ -237,7 +262,7 @@ export default function EditProfilePage() {
             {/* Contact Info */}
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
                   Phone Number <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -248,16 +273,21 @@ export default function EditProfilePage() {
                   onChange={handleChange}
                   className={`mt-1 block w-full rounded-lg border ${
                     errors.phone ? 'border-red-300' : 'border-gray-300'
-                  } px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500`}
+                  } px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all`}
                   placeholder="0771234567"
                 />
                 {errors.phone && (
-                  <p className="mt-1 text-xs text-red-600">{errors.phone}</p>
+                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {errors.phone}
+                  </p>
                 )}
               </div>
 
               <div>
-                <label htmlFor="emergencyContact" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="emergencyContact" className="block text-sm font-medium text-gray-700 mb-2">
                   Emergency Contact
                 </label>
                 <input
@@ -266,7 +296,7 @@ export default function EditProfilePage() {
                   type="tel"
                   value={formData.emergencyContact}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
                   placeholder="0771234567"
                 />
               </div>
@@ -274,7 +304,7 @@ export default function EditProfilePage() {
 
             {/* Date of Birth */}
             <div>
-              <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-2">
                 Date of Birth
               </label>
               <input
@@ -285,16 +315,21 @@ export default function EditProfilePage() {
                 onChange={handleChange}
                 className={`mt-1 block w-full rounded-lg border ${
                   errors.dateOfBirth ? 'border-red-300' : 'border-gray-300'
-                } px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500`}
+                } px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all`}
               />
               {errors.dateOfBirth && (
-                <p className="mt-1 text-xs text-red-600">{errors.dateOfBirth}</p>
+                <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {errors.dateOfBirth}
+                </p>
               )}
             </div>
 
             {/* Address */}
             <div>
-              <label htmlFor="address" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
                 Address
               </label>
               <textarea
@@ -303,23 +338,33 @@ export default function EditProfilePage() {
                 rows={3}
                 value={formData.address}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all resize-none"
                 placeholder="Enter your full address"
               />
             </div>
 
             {/* Buttons */}
-            <div className="flex gap-4">
+            <div className="flex gap-4 pt-4 border-t border-gray-200">
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-blue-400"
+                className="flex-1 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow"
               >
-                {isSubmitting ? 'Saving...' : 'Save Changes'}
+                {isSubmitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Saving Changes...
+                  </span>
+                ) : (
+                  'Save Changes'
+                )}
               </button>
               <Link
                 href="/profile"
-                className="flex-1 rounded-lg bg-gray-200 px-4 py-3 text-center font-semibold text-gray-700 transition-colors hover:bg-gray-300"
+                className="flex-1 rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-center text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all shadow-sm hover:shadow"
               >
                 Cancel
               </Link>

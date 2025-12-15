@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
       success: true,
       data: {
         user: {
+          _id: user._id,
           id: user._id,
           email: user.email,
           role: user.role,
