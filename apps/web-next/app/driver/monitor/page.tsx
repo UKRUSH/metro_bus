@@ -38,6 +38,8 @@ export default function DriverMonitorPage() {
   const [facialMovement, setFacialMovement] = useState<number>(0);
   const [faceDetected, setFaceDetected] = useState(false);
   const [detectionCount, setDetectionCount] = useState(0);
+  const [modelLoading, setModelLoading] = useState(false);
+  const [modelLoaded, setModelLoaded] = useState(false);
   
   const detectorRef = useRef<faceLandmarksDetection.FaceLandmarksDetector | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -47,6 +49,8 @@ export default function DriverMonitorPage() {
   const previousLandmarksRef = useRef<any>(null);
   const warningShownRef = useRef(false);
   const alarmPlayedRef = useRef(false);
+  const lastDetectionTimeRef = useRef<number>(0);
+  const DETECTION_INTERVAL = 100; // Run detection every 100ms
 
   // Send alert to API
   const sendAlert = async (alertType: AlertData['alertType']) => {
@@ -59,7 +63,12 @@ export default function DriverMonitorPage() {
         eyeClosedDuration: eyesClosedDuration
       };
 
-      const response = await fetch('/api/driver-alerts', {
+      console.log('📤 Alert triggered:', alertData);
+      
+      // Skip API call for now (requires authentication)
+      // TODO: Implement when driver authentication is added
+      /*
+      const response = await fetch('/api/drivers/alerts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -68,8 +77,9 @@ export default function DriverMonitorPage() {
       });
 
       if (!response.ok) {
-        console.error('Failed to send alert');
+        console.error('Failed to send alert:', response.status, response.statusText);
       }
+      */
     } catch (error) {
       console.error('Error sending alert:', error);
     }
@@ -77,27 +87,47 @@ export default function DriverMonitorPage() {
 
   // Initialize TensorFlow.js Face Mesh (using tfjs backend instead of mediapipe)
   const initializeDetector = async () => {
+    if (detectorRef.current) {
+      console.log('Detector already initialized');
+      return true;
+    }
+
     try {
-      console.log('Initializing TensorFlow.js...');
+      setModelLoading(true);
+      setError('');
+      
+      console.log('🔄 Step 1: Initializing TensorFlow.js...');
       await tf.ready();
-      console.log('TensorFlow.js ready, setting backend...');
+      console.log('✅ Step 1 Complete: TensorFlow.js ready');
+      
+      console.log('🔄 Step 2: Setting WebGL backend...');
       await tf.setBackend('webgl');
-      console.log('WebGL backend set, creating detector...');
+      await tf.ready();
+      console.log('✅ Step 2 Complete: WebGL backend active');
       
-      const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
-      const detectorConfig: faceLandmarksDetection.MediaPipeFaceMeshTfjsModelConfig = {
-        runtime: 'tfjs',
-        refineLandmarks: true,
-        maxFaces: 1,
-      };
+      console.log('🔄 Step 3: Loading Face Detection Model...');
+      console.log('Trying BlazeFace model for better detection...');
       
-      const detector = await faceLandmarksDetection.createDetector(model, detectorConfig);
+      const detector = await faceLandmarksDetection.createDetector(
+        faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
+        {
+          runtime: 'tfjs',
+          refineLandmarks: true,
+          maxFaces: 2,
+          detectorModelUrl: undefined,
+          landmarksModelUrl: undefined
+        }
+      );
       detectorRef.current = detector;
-      console.log('✅ Face detector initialized successfully');
+      
+      console.log('✅ Step 3 Complete: Model loaded!');
+      setModelLoaded(true);
+      setModelLoading(false);
       return true;
     } catch (error) {
-      console.error('❌ Error initializing detector:', error);
-      setError('Failed to initialize face detection: ' + (error as Error).message);
+      console.error('❌ Error:', error);
+      setError('Failed to load model: ' + (error as Error).message);
+      setModelLoading(false);
       return false;
     }
   };
@@ -140,8 +170,24 @@ export default function DriverMonitorPage() {
 
   // Main detection loop
   const detectFaces = async () => {
+    // Throttle detection to avoid overwhelming the model
+    const now = Date.now();
+    if (now - lastDetectionTimeRef.current < DETECTION_INTERVAL) {
+      animationRef.current = requestAnimationFrame(detectFaces);
+      return;
+    }
+    lastDetectionTimeRef.current = now;
+    
+    // Reduced logging - only log every 10th frame
+    const shouldLog = (detectionCount % 10 === 0);
+    if (shouldLog) console.log('🔁 detectFaces() called, frame:', detectionCount);
+    
     if (!detectorRef.current || !videoRef.current || !canvasRef.current) {
-      console.warn('Detection skipped - missing references');
+      if (shouldLog) console.warn('⚠️ Detection skipped - missing references:', {
+        detector: !!detectorRef.current,
+        video: !!videoRef.current,
+        canvas: !!canvasRef.current
+      });
       animationRef.current = requestAnimationFrame(detectFaces);
       return;
     }
@@ -150,28 +196,48 @@ export default function DriverMonitorPage() {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
 
-    if (!ctx || video.readyState !== 4) {
+    if (!ctx) {
+      if (shouldLog) console.warn('⚠️ No canvas context');
       animationRef.current = requestAnimationFrame(detectFaces);
       return;
     }
+    
+    if (video.readyState !== 4) {
+      if (shouldLog) console.warn('⚠️ Video not ready, readyState:', video.readyState);
+      animationRef.current = requestAnimationFrame(detectFaces);
+      return;
+    }
+    
+    if (shouldLog) console.log('✅ All checks passed, running detection...');
 
     // Set canvas size to match video
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
+    
+    // Draw video frame to canvas FIRST
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    if (shouldLog) console.log('📹 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
 
     try {
-      // Detect faces
-      const faces = await detectorRef.current.estimateFaces(video, {
-        flipHorizontal: false
+      // Detect faces from CANVAS instead of video element
+      if (shouldLog) console.log('🔍 Calling estimateFaces...');
+      const startTime = performance.now();
+      const faces = await detectorRef.current.estimateFaces(canvas, {
+        flipHorizontal: true,  // Try with flip enabled
+        staticImageMode: false
       });
+      const detectionTime = performance.now() - startTime;
+      if (shouldLog) console.log('⏱️ Detection took:', detectionTime.toFixed(2), 'ms, found', faces.length, 'faces');
 
-      // Clear canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Don't clear canvas here - already has video frame drawn
+      
+      // Update frame counter regardless of face detection
+      setDetectionCount(prev => prev + 1);
 
       if (faces.length > 0) {
-        console.log('Face detected!', faces.length);
+        console.log('✅ Face detected!', faces.length);
         setFaceDetected(true);
-        setDetectionCount(prev => prev + 1);
         
         const face = faces[0];
         const keypoints = face.keypoints;
@@ -185,7 +251,7 @@ export default function DriverMonitorPage() {
         const rightEAR = calculateEAR(rightEyeLandmarks);
         const avgEAR = calculateAverageEAR(leftEAR, rightEAR);
 
-        console.log('EAR values - Left:', leftEAR.toFixed(3), 'Right:', rightEAR.toFixed(3), 'Avg:', avgEAR.toFixed(3));
+        if (shouldLog) console.log('EAR values - Left:', leftEAR.toFixed(3), 'Right:', rightEAR.toFixed(3), 'Avg:', avgEAR.toFixed(3));
 
         // Detect facial movement and driver state
         const facialMovement = detectFacialMovement(keypoints, previousLandmarksRef.current);
@@ -204,7 +270,7 @@ export default function DriverMonitorPage() {
         // Check if eyes are closed using utility function
         const eyesClosed = areEyesClosed(avgEAR, EAR_THRESHOLDS.CLOSED_EYE);
 
-        console.log('Eyes status:', eyesClosed ? 'CLOSED' : 'OPEN', 'Duration:', eyesClosedDuration.toFixed(1) + 's');
+        if (shouldLog) console.log('Eyes status:', eyesClosed ? 'CLOSED' : 'OPEN', 'Duration:', eyesClosedDuration.toFixed(1) + 's');
 
         if (eyesClosed) {
           if (eyesClosedStartRef.current === null) {
@@ -241,9 +307,19 @@ export default function DriverMonitorPage() {
 
         // Send alert for sleeping/tension states
         if (state === 'Sleeping' && !alarmPlayedRef.current) {
+          console.log('🚨 DRIVER SLEEPING - PLAYING ALARM');
+          playAlarm();
+          alarmPlayedRef.current = true;
           sendAlert('sleeping');
         } else if (state === 'Tension') {
           sendAlert('tension');
+        }
+        
+        // Also play alarm if eyes closed too long
+        if (eyesClosed && eyesClosedDuration > EAR_THRESHOLDS.ALARM_DURATION && !alarmPlayedRef.current) {
+          console.log('🚨 EYES CLOSED TOO LONG - PLAYING ALARM');
+          playAlarm();
+          alarmPlayedRef.current = true;
         }
 
         // Draw face mesh (optional - for visualization)
@@ -276,45 +352,74 @@ export default function DriverMonitorPage() {
         ctx.closePath();
         ctx.stroke();
       } else {
-        console.log('No face detected in frame');
+        if (shouldLog) console.log('❌ No face detected in frame');
         setFaceDetected(false);
       }
     } catch (error) {
-      console.error('Detection error:', error);
+      console.error('❌ Detection error:', error);
     }
 
     // Continue detection loop
     animationRef.current = requestAnimationFrame(detectFaces);
   };
 
-  // Play alarm sound
+  // Play alarm sound with beep-beep pattern
   const playAlarm = () => {
-    if (!alarmAudioRef.current) {
-      // Create alarm sound using Web Audio API
-      const audioContext = new AudioContext();
+    if (alarmAudioRef.current) return; // Already playing
+
+    console.log('🚨 PLAYING ALARM SOUND');
+    
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    
+    // Create beep-beep pattern
+    const playBeep = (startTime: number, duration: number, frequency: number) => {
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
-
+      
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
-
-      oscillator.frequency.value = 800; // Hz
+      
+      oscillator.frequency.value = frequency;
       oscillator.type = 'sine';
-      gainNode.gain.value = 0.3;
-
-      oscillator.start();
-
-      // Store reference for stopping
-      (alarmAudioRef.current as any) = { oscillator, audioContext };
+      
+      // Envelope for smooth beep
+      gainNode.gain.setValueAtTime(0, startTime);
+      gainNode.gain.linearRampToValueAtTime(0.5, startTime + 0.01); // Attack
+      gainNode.gain.setValueAtTime(0.5, startTime + duration - 0.05);
+      gainNode.gain.linearRampToValueAtTime(0, startTime + duration); // Release
+      
+      oscillator.start(startTime);
+      oscillator.stop(startTime + duration);
+    };
+    
+    // Beep pattern: BEEP-BEEP pause BEEP-BEEP pause (repeating)
+    const beepDuration = 0.2; // 200ms beep
+    const gapBetweenBeeps = 0.15; // 150ms gap
+    const pauseBetweenPatterns = 0.5; // 500ms pause
+    const patternDuration = (beepDuration * 2) + gapBetweenBeeps + pauseBetweenPatterns;
+    
+    // Play 10 patterns (about 10 seconds of alarm)
+    for (let i = 0; i < 10; i++) {
+      const patternStart = audioContext.currentTime + (i * patternDuration);
+      playBeep(patternStart, beepDuration, 800); // First beep
+      playBeep(patternStart + beepDuration + gapBetweenBeeps, beepDuration, 800); // Second beep
     }
+    
+    // Store reference for stopping
+    (alarmAudioRef.current as any) = { audioContext };
+    
+    // Auto-stop after 10 seconds
+    setTimeout(() => {
+      stopAlarm();
+    }, 10000);
   };
 
   // Stop alarm sound
   const stopAlarm = () => {
     if (alarmAudioRef.current) {
-      const { oscillator, audioContext } = alarmAudioRef.current as any;
+      console.log('🔇 STOPPING ALARM');
+      const { audioContext } = alarmAudioRef.current as any;
       try {
-        oscillator.stop();
         audioContext.close();
       } catch (e) {
         // Ignore if already stopped
@@ -325,39 +430,42 @@ export default function DriverMonitorPage() {
 
   // Start monitoring
   const handleStartTrip = async () => {
-    console.log('=== Starting Trip ===');
+    console.log('\n=== 🚀 STARTING TRIP ===');
     
     if (!permissionGranted) {
-      console.log('Requesting camera permission...');
+      console.log('📷 Requesting camera permission...');
       await startCamera();
       return;
     }
 
-    console.log('Camera already granted, initializing detector...');
+    console.log('✅ Camera granted');
+    console.log('🔄 Loading face detection model...');
     
     if (!detectorRef.current) {
       const success = await initializeDetector();
       if (!success) {
-        console.error('Failed to initialize detector, aborting');
+        console.error('❌ Failed to load model');
         return;
       }
     }
 
-    console.log('Starting monitoring and detection loop...');
+    console.log('✅ Model loaded');
+    console.log('🔄 Starting detection...');
+    
     setIsMonitoring(true);
     setError('');
     
-    // Wait for video to be ready
     if (videoRef.current) {
-      videoRef.current.onloadeddata = () => {
-        console.log('Video ready, starting detection');
-        detectFaces();
+      const startDetection = () => {
+        console.log('✅ Video ready');
+        console.log('👀 Look at camera now!');
+        setTimeout(() => detectFaces(), 500);
       };
       
-      // If already loaded, start immediately
       if (videoRef.current.readyState >= 2) {
-        console.log('Video already loaded, starting detection');
-        detectFaces();
+        startDetection();
+      } else {
+        videoRef.current.onloadeddata = startDetection;
       }
     }
   };
@@ -429,9 +537,26 @@ export default function DriverMonitorPage() {
                 {!isMonitoring ? (
                   <button
                     onClick={handleStartTrip}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                    disabled={modelLoading}
+                    className={`flex-1 font-semibold py-3 px-6 rounded-lg transition-colors ${
+                      modelLoading 
+                        ? 'bg-gray-600 cursor-not-allowed' 
+                        : 'bg-green-600 hover:bg-green-700 text-white'
+                    }`}
                   >
-                    {permissionGranted ? 'Start Trip' : 'Grant Camera Permission'}
+                    {modelLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Loading Model...
+                      </span>
+                    ) : permissionGranted ? (
+                      modelLoaded ? 'Start Monitoring' : 'Load Model & Start'
+                    ) : (
+                      'Grant Camera Permission'
+                    )}
                   </button>
                 ) : (
                   <button
