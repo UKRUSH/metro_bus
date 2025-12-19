@@ -34,6 +34,17 @@ export default function DriverDashboard() {
       color: 'blue',
     },
     {
+      title: 'Request Schedule',
+      description: 'Request bus & route assignments',
+      icon: (
+        <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 7h3m-6 4h3m3-4h3m-3 4h3" />
+        </svg>
+      ),
+      href: '/driver/schedule-request',
+      color: 'indigo',
+    },
+    {
       title: 'Trip Logs',
       description: 'Start, end, and record trips',
       icon: (

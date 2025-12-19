@@ -62,6 +62,10 @@ export default function AdminBusFleetPage() {
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [detailsBus, setDetailsBus] = useState<Bus | null>(null);
+  const [showRouteModal, setShowRouteModal] = useState(false);
+  const [selectedRoute, setSelectedRoute] = useState('');
+  const [routes, setRoutes] = useState<any[]>([]);
+  const [assigningRoute, setAssigningRoute] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -79,6 +83,12 @@ export default function AdminBusFleetPage() {
 
     fetchBuses();
   }, [authLoading, isAuthenticated, user, router, tokens]);
+
+  useEffect(() => {
+    if (isAuthenticated && tokens?.accessToken) {
+      fetchRoutes();
+    }
+  }, [isAuthenticated, tokens]);
 
   useEffect(() => {
     if (statusFilter || searchTerm) {
@@ -184,6 +194,65 @@ export default function AdminBusFleetPage() {
   });
 
   const counts = getStatusCounts();
+
+  const fetchRoutes = async () => {
+    if (!tokens?.accessToken) return;
+
+    try {
+      const response = await fetch('/api/routes', {
+        headers: { Authorization: `Bearer ${tokens.accessToken}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Routes response:', data);
+        // Handle different response structures
+        const routesList = data.routes || data.data?.routes || data.data || [];
+        console.log('Routes list:', routesList);
+        setRoutes(routesList);
+      } else {
+        console.error('Failed to fetch routes:', response.status);
+      }
+    } catch (error) {
+      console.error('Error fetching routes:', error);
+    }
+  };
+
+  const handleAssignRoute = (bus: Bus) => {
+    setSelectedBus(bus);
+    setSelectedRoute(bus.routeId?._id || '');
+    setShowRouteModal(true);
+  };
+
+  const handleRouteAssignment = async () => {
+    if (!selectedBus || !tokens?.accessToken) return;
+
+    setAssigningRoute(true);
+    try {
+      const response = await fetch(`/api/buses/${selectedBus._id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${tokens.accessToken}`,
+        },
+        body: JSON.stringify({ routeId: selectedRoute || null }),
+      });
+
+      if (!response.ok) throw new Error('Failed to assign route');
+
+      setNotification({ type: 'success', message: 'Route assigned successfully!' });
+      setShowRouteModal(false);
+      setSelectedBus(null);
+      setSelectedRoute('');
+      await fetchBuses();
+      setTimeout(() => setNotification(null), 3000);
+    } catch (error: any) {
+      setNotification({ type: 'error', message: error.message });
+      setTimeout(() => setNotification(null), 5000);
+    } finally {
+      setAssigningRoute(false);
+    }
+  };
 
   const handleApprove = (bus: Bus) => {
     setSelectedBus(bus);
@@ -476,7 +545,10 @@ export default function AdminBusFleetPage() {
                       Bus Details
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Owner & Route
+                      Owner
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      Route
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                       Status
@@ -518,14 +590,27 @@ export default function AdminBusFleetPage() {
                           ) : (
                             <span className="text-sm text-gray-400 italic">No owner</span>
                           )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="space-y-2">
                           {bus.routeId ? (
-                            <div className="mt-1">
+                            <div className="mb-2">
                               <p className="text-sm font-medium text-gray-900">
-                                {bus.routeId.name} ({bus.routeId.code})
+                                {bus.routeId.name}
                               </p>
+                              <p className="text-xs text-gray-500">({bus.routeId.code})</p>
                             </div>
                           ) : (
-                            <span className="text-xs text-gray-400 italic">No route assigned</span>
+                            <span className="text-xs text-gray-400 italic block mb-2">No route assigned</span>
+                          )}
+                          {bus.approvalStatus === 'approved' && (
+                            <button
+                              onClick={() => handleAssignRoute(bus)}
+                              className="w-full rounded-md border border-blue-600 bg-white px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors"
+                            >
+                              {bus.routeId ? 'Change Route' : 'Assign Route'}
+                            </button>
                           )}
                         </div>
                       </td>
@@ -1036,6 +1121,73 @@ export default function AdminBusFleetPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Route Assignment Modal */}
+      {showRouteModal && selectedBus && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Assign Route to {selectedBus.registrationNumber}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowRouteModal(false);
+                  setSelectedBus(null);
+                  setSelectedRoute('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Route
+              </label>
+              <select
+                value={selectedRoute}
+                onChange={(e) => setSelectedRoute(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">No Route (Remove Assignment)</option>
+                {routes.map((route) => (
+                  <option key={route._id} value={route._id}>
+                    {route.name} ({route.code}) - {route.origin} → {route.destination}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-sm text-gray-500">
+                Current: {selectedBus.routeId ? `${selectedBus.routeId.name} (${selectedBus.routeId.code})` : 'No route assigned'}
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowRouteModal(false);
+                  setSelectedBus(null);
+                  setSelectedRoute('');
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                disabled={assigningRoute}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRouteAssignment}
+                disabled={assigningRoute}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                {assigningRoute ? 'Assigning...' : 'Assign Route'}
+              </button>
+            </div>
           </div>
         </div>
       )}

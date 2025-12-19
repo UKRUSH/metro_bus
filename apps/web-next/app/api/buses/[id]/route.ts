@@ -165,6 +165,65 @@ export async function PUT(
   }
 }
 
+// PATCH /api/buses/[id] - Partial update (e.g., route assignment)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = authenticateRequest(request);
+    if (!auth) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Only admin and operators can assign routes
+    if (!['admin', 'operator'].includes(auth.role)) {
+      return NextResponse.json(
+        { error: 'Only admin and operators can assign routes' },
+        { status: 403 }
+      );
+    }
+
+    await dbConnect();
+    const { id } = await params;
+    const body = await request.json();
+
+    const bus = await Bus.findById(id);
+    if (!bus) {
+      return NextResponse.json(
+        { error: 'Bus not found' },
+        { status: 404 }
+      );
+    }
+
+    // Update route assignment
+    if ('routeId' in body) {
+      bus.routeId = body.routeId || null;
+      await bus.save();
+    }
+
+    const updatedBus = await Bus.findById(id)
+      .populate('routeId', 'name code origin destination')
+      .populate('driverId', 'email profile')
+      .populate('ownerId', 'email profile');
+
+    return NextResponse.json({
+      success: true,
+      data: { bus: updatedBus },
+      message: 'Route assigned successfully',
+    });
+  } catch (error) {
+    console.error('Error assigning route:', error);
+    return NextResponse.json(
+      { error: 'Failed to assign route' },
+      { status: 500 }
+    );
+  }
+}
+
 // DELETE /api/buses/[id] - Delete bus (Admin/Owner)
 export async function DELETE(
   request: NextRequest,
