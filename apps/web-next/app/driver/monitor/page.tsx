@@ -115,7 +115,7 @@ export default function DriverMonitorPage() {
           refineLandmarks: true,
           maxFaces: 2,
           detectorModelUrl: undefined,
-          landmarksModelUrl: undefined
+          landmarkModelUrl: undefined
         }
       );
       detectorRef.current = detector;

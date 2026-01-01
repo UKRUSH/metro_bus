@@ -48,7 +48,7 @@ interface ConditionReport {
 export default function ReportDetailPage() {
   const router = useRouter();
   const params = useParams();
-  const { user, loading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [report, setReport] = useState<ConditionReport | null>(null);
   const [loading, setLoading] = useState(true);
 

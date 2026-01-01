@@ -68,7 +68,7 @@ interface Owner {
 
 export default function AdminUsersPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [owners, setOwners] = useState<Owner[]>([]);

@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 
     // Drivers can only see their own assignments
     if (hasRole(user, [UserRole.DRIVER]) && !hasRole(user, [UserRole.ADMIN])) {
-      const driver = await Driver.findOne({ userId: user.id });
+      const driver = await Driver.findOne({ userId: user.userId });
       if (!driver) {
         return NextResponse.json({ error: 'Driver profile not found' }, { status: 404 });
       }
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
     let requestedBy: 'driver' | 'admin' = 'admin';
 
     if (hasRole(user, [UserRole.DRIVER]) && !hasRole(user, [UserRole.ADMIN])) {
-      const driver = await Driver.findOne({ userId: user.id });
+      const driver = await Driver.findOne({ userId: user.userId });
       if (!driver) {
         return NextResponse.json({ error: 'Driver profile not found' }, { status: 404 });
       }
@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
     // Admin can directly approve, driver requests need approval
     const status = requestedBy === 'admin' ? 'approved' : 'pending';
     const approvalData = requestedBy === 'admin' ? {
-      approvedBy: user.id,
+      approvedBy: user.userId,
       approvedAt: new Date(),
     } : {};
 

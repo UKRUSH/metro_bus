@@ -4,7 +4,6 @@ import TripLog from '@/lib/models/TripLog';
 import Driver from '@/lib/models/Driver';
 import { authenticateRequest, hasRole } from '@/lib/auth/middleware';
 import { UserRole } from '@metro/shared';
-import { createTripLogSchema } from '@metro/shared/validation';
 
 /**
  * GET /api/drivers/trips
@@ -12,24 +11,27 @@ import { createTripLogSchema } from '@metro/shared/validation';
  */
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await authenticateRequest(req);
-    if (!authResult.success) {
-      return NextResponse.json({ error: authResult.error }, { status: 401 });
+    const user = authenticateRequest(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { user } = authResult;
     const { searchParams } = new URL(req.url);
+
+    await connectDB();
 
     // Build query
     const query: any = {};
 
     // Role-based filtering
-    if (hasRole(authResult, [UserRole.DRIVER])) {
+    if (hasRole(user, [UserRole.DRIVER])) {
       // Drivers can only see their own trips
-      const driver = await Driver.findOne({ userId: user.id });
+      const driver = await Driver.findOne({ userId: user.userId });
       if (!driver) {
+        console.error('Driver profile not found for userId:', user.userId);
         return NextResponse.json({ error: 'Driver profile not found' }, { status: 404 });
       }
+      console.log('Found driver:', driver._id, 'for userId:', user.userId);
       query.driverId = driver._id;
     } else if (searchParams.get('driverId')) {
       query.driverId = searchParams.get('driverId');
@@ -54,20 +56,21 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20');
     const skip = (page - 1) * limit;
 
-    await connectDB();
-
     const [trips, total] = await Promise.all([
       TripLog.find(query)
         .sort({ startTime: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('driverId', 'userId documents.licenseNumber status')
+        .populate('driverId', 'userId fullName licenseNumber status')
         .populate('busId', 'registrationNumber busType capacity')
         .populate('routeId', 'name origin destination')
         .populate('scheduleId', 'departureTime arrivalTime')
         .lean(),
       TripLog.countDocuments(query),
     ]);
+
+    console.log('Trips query:', JSON.stringify(query));
+    console.log('Found trips count:', trips.length, 'Total:', total);
 
     return NextResponse.json({
       trips,
@@ -93,24 +96,31 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const authResult = await authenticateRequest(req);
-    if (!authResult.success) {
-      return NextResponse.json({ error: authResult.error }, { status: 401 });
+    const user = authenticateRequest(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!hasRole(authResult, [UserRole.DRIVER, UserRole.ADMIN])) {
+    if (!hasRole(user, [UserRole.DRIVER, UserRole.ADMIN])) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
     const body = await req.json();
     
-    // Validate input
-    const validatedData = createTripLogSchema.parse(body);
+    await connectDB();
+    
+    // Validate required fields
+    if (!body.busId || !body.routeId) {
+      return NextResponse.json(
+        { error: 'Bus ID and Route ID are required' },
+        { status: 400 }
+      );
+    }
 
     // Get driver ID
     let driverId;
-    if (hasRole(authResult, [UserRole.DRIVER])) {
-      const driver = await Driver.findOne({ userId: authResult.user.id });
+    if (hasRole(user, [UserRole.DRIVER])) {
+      const driver = await Driver.findOne({ userId: user.userId });
       if (!driver) {
         return NextResponse.json({ error: 'Driver profile not found' }, { status: 404 });
       }
@@ -119,12 +129,10 @@ export async function POST(req: NextRequest) {
       driverId = body.driverId;
     }
 
-    await connectDB();
-
     // Check for active trips
     const activeTrip = await TripLog.findOne({
       driverId,
-      status: { $in: ['started', 'in_progress'] },
+      status: 'active',
     });
 
     if (activeTrip) {
@@ -137,11 +145,11 @@ export async function POST(req: NextRequest) {
     // Create trip log
     const trip = await TripLog.create({
       driverId,
-      busId: validatedData.busId,
-      scheduleId: validatedData.scheduleId,
-      routeId: validatedData.routeId,
+      busId: body.busId,
+      scheduleId: body.scheduleId,
+      routeId: body.routeId,
       startTime: new Date(),
-      startLocation: validatedData.startLocation,
+      startLocation: body.startLocation,
       status: 'started',
     });
 

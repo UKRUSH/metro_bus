@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Schedule from '@/lib/models/Schedule';
-import { requireAuth } from '@/lib/auth';
+import { authenticateRequest, hasRole } from '@/lib/auth/middleware';
+import { UserRole } from '@metro/shared';
 
 // GET /api/schedules - List schedules with filters
 export async function GET(request: NextRequest) {
@@ -11,17 +12,16 @@ export async function GET(request: NextRequest) {
     console.log('Schedules API - Auth header:', authHeader ? authHeader.substring(0, 30) + '...' : 'MISSING');
     
     // Authenticate user
-    const auth = requireAuth();
-    const authResult = auth(request);
+    const authResult = authenticateRequest(request);
     console.log('Schedules API - Auth result:', { 
-      authorized: authResult.authorized, 
-      userId: authResult.user?.userId,
-      role: authResult.user?.role 
+      authenticated: !!authResult, 
+      userId: authResult?.userId,
+      role: authResult?.role 
     });
     
-    if (!authResult.authorized || !authResult.user) {
+    if (!authResult) {
       return NextResponse.json(
-        { success: false, error: authResult.error || 'Unauthorized - Please log in' },
+        { success: false, error: 'Unauthorized - Please log in' },
         { status: 401 }
       );
     }
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     const query: any = {};
 
     // For drivers, filter by assigned schedules
-    if (authResult.user.role === 'driver') {
+    if (authResult.role === 'driver') {
       // TODO: Add driver assignment filtering when driver-bus assignment is implemented
       // For now, show all active schedules
       query.isActive = true;
@@ -86,11 +86,11 @@ export async function GET(request: NextRequest) {
 // POST /api/schedules - Create a new schedule (Admin only)
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requireAuth(request, ['admin']);
-    if (!authResult.authenticated) {
+    const authResult = authenticateRequest(request);
+    if (!authResult || !hasRole(authResult, [UserRole.ADMIN, UserRole.OWNER])) {
       return NextResponse.json(
-        { success: false, error: authResult.error || 'Unauthorized' },
-        { status: 401 }
+        { success: false, error: 'Unauthorized - Admin access required' },
+        { status: 403 }
       );
     }
 

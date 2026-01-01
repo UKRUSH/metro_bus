@@ -27,7 +27,7 @@ interface BusLocation {
 
 export default function AdminLiveTrackingPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [buses, setBuses] = useState<BusLocation[]>([]);
   const [selectedBus, setSelectedBus] = useState<string | null>(null);
   const [filter, setFilter] = useState('all');

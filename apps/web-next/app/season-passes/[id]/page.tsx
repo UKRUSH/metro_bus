@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -39,7 +39,7 @@ interface SeasonPass {
   createdAt: string;
 }
 
-export default function SeasonPassDetailsPage() {
+function SeasonPassDetailsContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -515,5 +515,13 @@ export default function SeasonPassDetailsPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function SeasonPassDetailsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <SeasonPassDetailsContent />
+    </Suspense>
   );
 }

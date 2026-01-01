@@ -11,9 +11,9 @@ import { UserRole } from '@metro/shared';
  */
 export async function POST(req: NextRequest) {
   try {
-    const authResult = await authenticateRequest(req);
-    if (!authResult.success) {
-      return NextResponse.json({ error: authResult.error }, { status: 401 });
+    const authResult = authenticateRequest(req);
+    if (!authResult) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     if (!hasRole(authResult, [UserRole.DRIVER, UserRole.ADMIN])) {
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     // For drivers, use their own profile; admins can check out for others
     let driverId = body.driverId;
     if (hasRole(authResult, [UserRole.DRIVER])) {
-      const driver = await Driver.findOne({ userId: authResult.user.id });
+      const driver = await Driver.findOne({ userId: authResult.userId });
       if (!driver) {
         return NextResponse.json({ error: 'Driver profile not found' }, { status: 404 });
       }

@@ -19,7 +19,7 @@ interface ConditionReport {
 
 export default function DriverReportsPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [reports, setReports] = useState<ConditionReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');

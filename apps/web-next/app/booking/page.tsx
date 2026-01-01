@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -27,7 +27,7 @@ interface Schedule {
   availableSeats: number;
 }
 
-export default function BookingPage() {
+function BookingContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   
@@ -373,5 +373,13 @@ export default function BookingPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function BookingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <BookingContent />
+    </Suspense>
   );
 }

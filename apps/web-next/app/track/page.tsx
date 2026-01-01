@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
@@ -44,7 +44,7 @@ interface Bus {
   facilities: string[];
 }
 
-export default function BusTrackingPage() {
+function BusTrackingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const routeId = searchParams.get('routeId');
@@ -307,5 +307,13 @@ export default function BusTrackingPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function BusTrackingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <BusTrackingContent />
+    </Suspense>
   );
 }

@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/mongodb';
-import { requireAuth } from '@/lib/auth/middleware';
+import connectDB from '@/lib/mongodb';
+import { authenticateRequest, hasRole } from '@/lib/auth/middleware';
 import ConditionReport from '@/lib/models/ConditionReport';
 import Driver from '@/lib/models/Driver';
 import { UserRole } from '@metro/shared';
 
 export async function GET(request: NextRequest) {
   try {
-    const authResult = requireAuth([UserRole.DRIVER, UserRole.ADMIN, UserRole.OWNER])(request);
-    if (!authResult.authorized || !authResult.user) {
+    const user = authenticateRequest(request);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await dbConnect();
+    await connectDB();
 
     const searchParams = request.nextUrl.searchParams;
     const busId = searchParams.get('busId');
@@ -25,8 +25,8 @@ export async function GET(request: NextRequest) {
     const query: any = {};
 
     // If driver, only show their reports
-    if (authResult.user.role === UserRole.DRIVER) {
-      const driver = await Driver.findOne({ userId: authResult.user.id });
+    if (hasRole(user, [UserRole.DRIVER])) {
+      const driver = await Driver.findOne({ userId: user.userId });
       if (driver) {
         query.driverId = driver._id;
       }
@@ -64,15 +64,19 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = requireAuth([UserRole.DRIVER])(request);
-    if (!authResult.authorized || !authResult.user) {
+    const user = authenticateRequest(request);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await dbConnect();
+    if (!hasRole(user, [UserRole.DRIVER, UserRole.ADMIN])) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    }
+
+    await connectDB();
 
     // Get driver
-    const driver = await Driver.findOne({ userId: authResult.user.id });
+    const driver = await Driver.findOne({ userId: user.userId });
     if (!driver) {
       return NextResponse.json({ error: 'Driver profile not found' }, { status: 404 });
     }

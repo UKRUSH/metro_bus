@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -46,7 +46,7 @@ interface Booking {
   transactionId?: string;
 }
 
-export default function BookingDetailsPage() {
+function BookingDetailsContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -377,5 +377,13 @@ export default function BookingDetailsPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function BookingDetailsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <BookingDetailsContent />
+    </Suspense>
   );
 }

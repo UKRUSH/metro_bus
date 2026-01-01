@@ -48,7 +48,7 @@ interface Bus {
 
 export default function AdminBusFleetPage() {
   const router = useRouter();
-  const { tokens, isAuthenticated, user, isLoading: authLoading } = useAuth();
+  const { tokens, isAuthenticated, user, isLoading: authLoading, refreshAccessToken } = useAuth();
   const [buses, setBuses] = useState<Bus[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
@@ -96,7 +96,7 @@ export default function AdminBusFleetPage() {
     }
   }, [statusFilter, searchTerm]);
 
-  const fetchBuses = async () => {
+  const fetchBuses = async (retryWithRefresh = true) => {
     if (!tokens?.accessToken) {
       console.log('No access token available yet');
       return;
@@ -115,6 +115,16 @@ export default function AdminBusFleetPage() {
       });
 
       if (!response.ok) {
+        // If unauthorized and we haven't retried yet, try refreshing the token
+        if (response.status === 401 && retryWithRefresh) {
+          console.log('Token expired, attempting refresh...');
+          const newToken = await refreshAccessToken();
+          if (newToken) {
+            // Retry the request with the new token
+            return fetchBuses(false);
+          }
+        }
+        
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
         console.error('API Error:', response.status, errorData);
         throw new Error(errorData.error || `Failed to fetch buses (${response.status})`);
@@ -195,7 +205,7 @@ export default function AdminBusFleetPage() {
 
   const counts = getStatusCounts();
 
-  const fetchRoutes = async () => {
+  const fetchRoutes = async (retryWithRefresh = true) => {
     if (!tokens?.accessToken) return;
 
     try {
@@ -203,16 +213,25 @@ export default function AdminBusFleetPage() {
         headers: { Authorization: `Bearer ${tokens.accessToken}` },
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Routes response:', data);
-        // Handle different response structures
-        const routesList = data.routes || data.data?.routes || data.data || [];
-        console.log('Routes list:', routesList);
-        setRoutes(routesList);
-      } else {
+      if (!response.ok) {
+        // If unauthorized and we haven't retried yet, try refreshing the token
+        if (response.status === 401 && retryWithRefresh) {
+          console.log('Token expired, attempting refresh...');
+          const newToken = await refreshAccessToken();
+          if (newToken) {
+            return fetchRoutes(false);
+          }
+        }
         console.error('Failed to fetch routes:', response.status);
+        return;
       }
+
+      const data = await response.json();
+      console.log('Routes response:', data);
+      // Handle different response structures
+      const routesList = data.routes || data.data?.routes || data.data || [];
+      console.log('Routes list:', routesList);
+      setRoutes(routesList);
     } catch (error) {
       console.error('Error fetching routes:', error);
     }
@@ -224,7 +243,7 @@ export default function AdminBusFleetPage() {
     setShowRouteModal(true);
   };
 
-  const handleRouteAssignment = async () => {
+  const handleRouteAssignment = async (retryWithRefresh = true) => {
     if (!selectedBus || !tokens?.accessToken) return;
 
     setAssigningRoute(true);
@@ -238,7 +257,15 @@ export default function AdminBusFleetPage() {
         body: JSON.stringify({ routeId: selectedRoute || null }),
       });
 
-      if (!response.ok) throw new Error('Failed to assign route');
+      if (!response.ok) {
+        if (response.status === 401 && retryWithRefresh) {
+          const newToken = await refreshAccessToken();
+          if (newToken) {
+            return handleRouteAssignment(false);
+          }
+        }
+        throw new Error('Failed to assign route');
+      }
 
       setNotification({ type: 'success', message: 'Route assigned successfully!' });
       setShowRouteModal(false);
@@ -310,6 +337,36 @@ export default function AdminBusFleetPage() {
       console.log('Response status:', response.status);
 
       if (!response.ok) {
+        if (response.status === 401) {
+          const newToken = await refreshAccessToken();
+          if (newToken) {
+            // Retry with new token
+            const retryResponse = await fetch(`/api/buses/${selectedBus._id}/approve`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${newToken}`,
+              },
+              body: JSON.stringify(requestBody),
+            });
+            if (!retryResponse.ok) {
+              const errorData = await retryResponse.json().catch(() => ({ error: 'Unknown error' }));
+              throw new Error(errorData.error || `Failed to ${modalAction} bus`);
+            }
+            const result = await retryResponse.json();
+            console.log('Success response (after refresh):', result);
+            setNotification({
+              type: 'success',
+              message: `Bus ${modalAction === 'approve' ? 'approved' : 'rejected'} successfully!`,
+            });
+            setShowModal(false);
+            setSelectedBus(null);
+            setRejectionReason('');
+            await fetchBuses();
+            setTimeout(() => setNotification(null), 3000);
+            return;
+          }
+        }
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
         console.error('API Error Response:', errorData);
         throw new Error(errorData.error || `Failed to ${modalAction} bus (${response.status})`);

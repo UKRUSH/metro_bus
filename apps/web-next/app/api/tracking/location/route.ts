@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
-import { requireAuth } from '@/lib/auth/middleware';
+import { authenticateRequest, hasRole } from '@/lib/auth/middleware';
 import BusLocation from '@/lib/models/BusLocation';
 import Driver from '@/lib/models/Driver';
 import { UserRole } from '@metro/shared';
@@ -8,8 +8,8 @@ import { UserRole } from '@metro/shared';
 // GET /api/tracking/location - Get bus locations
 export async function GET(request: NextRequest) {
   try {
-    const authResult = requireAuth([UserRole.ADMIN, UserRole.OWNER, UserRole.PASSENGER])(request);
-    if (!authResult.authorized || !authResult.user) {
+    const authResult = authenticateRequest(request);
+    if (!authResult) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -57,15 +57,15 @@ export async function GET(request: NextRequest) {
 // POST /api/tracking/location - Update bus location (for drivers)
 export async function POST(request: NextRequest) {
   try {
-    const authResult = requireAuth([UserRole.DRIVER])(request);
-    if (!authResult.authorized || !authResult.user) {
+    const authResult = authenticateRequest(request);
+    if (!authResult || !hasRole(authResult, [UserRole.DRIVER])) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     await dbConnect();
 
     // Get driver profile
-    const driver = await Driver.findOne({ userId: authResult.user.id });
+    const driver = await Driver.findOne({ userId: authResult.userId });
     if (!driver) {
       return NextResponse.json({ error: 'Driver profile not found' }, { status: 404 });
     }

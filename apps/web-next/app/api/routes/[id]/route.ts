@@ -146,7 +146,9 @@ export async function PUT(
       { new: true, runValidators: true }
     ).lean();
 
-    console.log('Route updated successfully:', updatedRoute?._id, 'Origin:', updatedRoute?.origin, 'Destination:', updatedRoute?.destination);
+    if (updatedRoute && !Array.isArray(updatedRoute)) {
+      console.log('Route updated successfully:', updatedRoute._id, 'Origin:', updatedRoute.origin, 'Destination:', updatedRoute.destination);
+    }
 
     return NextResponse.json({
       success: true,

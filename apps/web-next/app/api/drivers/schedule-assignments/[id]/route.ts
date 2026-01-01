@@ -10,7 +10,7 @@ import { UserRole } from '@metro/shared';
  */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = authenticateRequest(req);
@@ -24,8 +24,9 @@ export async function PATCH(
 
     const body = await req.json();
     await connectDB();
+    const { id } = await params;
 
-    const assignment = await DriverScheduleAssignment.findById(params.id);
+    const assignment = await DriverScheduleAssignment.findById(id);
     if (!assignment) {
       return NextResponse.json({ error: 'Assignment not found' }, { status: 404 });
     }
@@ -40,7 +41,7 @@ export async function PATCH(
       }
 
       assignment.status = 'approved';
-      assignment.approvedBy = user.id;
+      assignment.approvedBy = user.userId;
       assignment.approvedAt = new Date();
       await assignment.save();
 
@@ -75,7 +76,7 @@ export async function PATCH(
       }
 
       assignment.status = 'rejected';
-      assignment.rejectedBy = user.id;
+      assignment.rejectedBy = user.userId;
       assignment.rejectedAt = new Date();
       assignment.rejectionReason = body.rejectionReason;
       await assignment.save();
@@ -127,7 +128,7 @@ export async function PATCH(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = authenticateRequest(req);
@@ -140,8 +141,9 @@ export async function DELETE(
     }
 
     await connectDB();
+    const { id } = await params;
 
-    const assignment = await DriverScheduleAssignment.findById(params.id);
+    const assignment = await DriverScheduleAssignment.findById(id);
     if (!assignment) {
       return NextResponse.json({ error: 'Assignment not found' }, { status: 404 });
     }
@@ -154,7 +156,7 @@ export async function DELETE(
       );
     }
 
-    await DriverScheduleAssignment.findByIdAndDelete(params.id);
+    await DriverScheduleAssignment.findByIdAndDelete(id);
 
     return NextResponse.json({
       success: true,

@@ -52,7 +52,7 @@ const defaultChecklist: Omit<ChecklistItem, 'status' | 'notes'>[] = [
 
 export default function NewConditionReportPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [buses, setBuses] = useState<any[]>([]);

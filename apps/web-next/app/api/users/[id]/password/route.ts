@@ -8,7 +8,7 @@ import { changePasswordSchema } from '@metro/shared';
 // PUT /api/users/:id/password - Change password
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authResult = authenticateRequest(request);
@@ -19,8 +19,9 @@ export async function PUT(
       );
     }
 
+    const { id } = await params;
     // Users can only change their own password
-    if (authResult.userId !== params.id) {
+    if (authResult.userId !== id) {
       return NextResponse.json(
         { success: false, error: 'Forbidden' },
         { status: 403 }
@@ -46,7 +47,7 @@ export async function PUT(
 
     const { currentPassword, newPassword } = validation.data;
 
-    const user = await User.findById(params.id);
+    const user = await User.findById(id);
 
     if (!user) {
       return NextResponse.json(

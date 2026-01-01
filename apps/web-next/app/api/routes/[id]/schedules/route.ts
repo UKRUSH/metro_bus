@@ -10,16 +10,17 @@ import { createScheduleSchema, UserRole } from '@metro/shared';
 // GET /api/routes/:id/schedules - Get schedules for a route
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
 
+    const { id } = await params;
     const searchParams = request.nextUrl.searchParams;
     const date = searchParams.get('date');
 
     const query: any = {
-      routeId: params.id,
+      routeId: id,
       isActive: true,
     };
 
@@ -80,7 +81,7 @@ export async function GET(
 // POST /api/routes/:id/schedules - Create new schedule (Admin only)
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authResult = authenticateRequest(request);
@@ -93,10 +94,11 @@ export async function POST(
 
     await connectDB();
 
+    const { id } = await params;
     const body = await request.json();
     
     // Override routeId with the one from URL
-    body.routeId = params.id;
+    body.routeId = id;
     
     // Validate request body
     const validationResult = createScheduleSchema.safeParse(body);
@@ -112,7 +114,7 @@ export async function POST(
     }
 
     // Check if route exists
-    const route = await Route.findById(params.id);
+    const route = await Route.findById(id);
     if (!route) {
       return NextResponse.json(
         { success: false, error: 'Route not found' },

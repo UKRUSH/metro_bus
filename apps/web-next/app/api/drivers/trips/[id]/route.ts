@@ -4,7 +4,6 @@ import TripLog from '@/lib/models/TripLog';
 import Driver from '@/lib/models/Driver';
 import { authenticateRequest, hasRole } from '@/lib/auth/middleware';
 import { UserRole } from '@metro/shared';
-import { updateTripLogSchema, endTripSchema } from '@metro/shared/validation';
 
 /**
  * GET /api/drivers/trips/:id
@@ -15,9 +14,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await authenticateRequest(req);
-    if (!authResult.success) {
-      return NextResponse.json({ error: authResult.error }, { status: 401 });
+    const user = authenticateRequest(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
@@ -35,8 +34,8 @@ export async function GET(
     }
 
     // Check permissions
-    if (hasRole(authResult, [UserRole.DRIVER])) {
-      const driver = await Driver.findOne({ userId: authResult.user.id });
+    if (hasRole(user, [UserRole.DRIVER])) {
+      const driver = await Driver.findOne({ userId: user.userId });
       if (!driver || trip.driverId.toString() !== driver._id.toString()) {
         return NextResponse.json({ error: 'Unauthorized access' }, { status: 403 });
       }
@@ -61,20 +60,17 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await authenticateRequest(req);
-    if (!authResult.success) {
-      return NextResponse.json({ error: authResult.error }, { status: 401 });
+    const user = authenticateRequest(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!hasRole(authResult, [UserRole.DRIVER, UserRole.ADMIN])) {
+    if (!hasRole(user, [UserRole.DRIVER, UserRole.ADMIN])) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
     const { id } = await params;
     const body = await req.json();
-
-    // Validate input
-    const validatedData = updateTripLogSchema.parse(body);
 
     await connectDB();
 
@@ -84,19 +80,21 @@ export async function PUT(
     }
 
     // Check permissions for drivers
-    if (hasRole(authResult, [UserRole.DRIVER])) {
-      const driver = await Driver.findOne({ userId: authResult.user.id });
+    if (hasRole(user, [UserRole.DRIVER])) {
+      const driver = await Driver.findOne({ userId: user.userId });
       if (!driver || trip.driverId.toString() !== driver._id.toString()) {
         return NextResponse.json({ error: 'Unauthorized access' }, { status: 403 });
       }
     }
 
     // Update fields
-    if (validatedData.endLocation) trip.endLocation = validatedData.endLocation;
-    if (validatedData.mileage !== undefined) trip.mileage = validatedData.mileage;
-    if (validatedData.passengerCount !== undefined) trip.passengerCount = validatedData.passengerCount;
-    if (validatedData.fuelUsed !== undefined) trip.fuelUsed = validatedData.fuelUsed;
-    if (validatedData.notes) trip.notes = validatedData.notes;
+    if (body.endLocation) trip.endLocation = body.endLocation;
+    if (body.mileage !== undefined) trip.mileage = body.mileage;
+    if (body.passengerCount !== undefined) trip.passengerCount = body.passengerCount;
+    if (body.passengersCount !== undefined) trip.passengerCount = body.passengersCount;
+    if (body.fuelUsed !== undefined) trip.fuelUsed = body.fuelUsed;
+    if (body.notes) trip.notes = body.notes;
+    if (body.distanceCovered !== undefined) trip.distanceCovered = body.distanceCovered;
 
     // Update status if not already completed
     if (trip.status === 'started') {
@@ -118,13 +116,6 @@ export async function PUT(
   } catch (error: any) {
     console.error('Update trip error:', error);
     
-    if (error.name === 'ZodError') {
-      return NextResponse.json(
-        { error: 'Validation failed', details: error.errors },
-        { status: 400 }
-      );
-    }
-    
     return NextResponse.json(
       { error: 'Failed to update trip', details: error.message },
       { status: 500 }
@@ -141,12 +132,12 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await authenticateRequest(req);
-    if (!authResult.success) {
-      return NextResponse.json({ error: authResult.error }, { status: 401 });
+    const user = authenticateRequest(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!hasRole(authResult, [UserRole.ADMIN])) {
+    if (!hasRole(user, [UserRole.ADMIN])) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 

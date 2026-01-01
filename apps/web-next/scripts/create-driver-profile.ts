@@ -3,7 +3,7 @@
  * Usage: npx tsx scripts/create-driver-profile.ts <email>
  */
 
-import { connectDB } from '../lib/mongodb';
+import connectDB from '../lib/mongodb';
 import User from '../lib/models/User';
 import Driver from '../lib/models/Driver';
 
@@ -19,7 +19,7 @@ async function createDriverProfile(email: string) {
       process.exit(1);
     }
 
-    console.log(`✓ Found user: ${user.name} (${user.email})`);
+    console.log(`✓ Found user: ${user.profile?.firstName} ${user.profile?.lastName} (${user.email})`);
     console.log(`  User ID: ${user._id}`);
     console.log(`  Role: ${user.role}`);
 
@@ -37,9 +37,11 @@ async function createDriverProfile(email: string) {
     // Create driver profile
     const driver = new Driver({
       userId: user._id,
-      fullName: user.name,
+      fullName: user.profile?.firstName 
+        ? `${user.profile.firstName} ${user.profile.lastName || ''}`
+        : user.email,
       licenseNumber: `DL-${Date.now()}`, // Generate temporary license number
-      mobileNumber: user.phone || '0000000000',
+      mobileNumber: user.profile?.phone || '0000000000',
       experience: 2, // Default 2 years
       specialization: ['city'], // Default city routes
       approvalStatus: 'approved', // Auto-approve for testing

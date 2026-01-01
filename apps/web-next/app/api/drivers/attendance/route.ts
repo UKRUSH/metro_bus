@@ -11,12 +11,11 @@ import { UserRole } from '@metro/shared';
  */
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await authenticateRequest(req);
-    if (!authResult.success) {
-      return NextResponse.json({ error: authResult.error }, { status: 401 });
+    const authResult = authenticateRequest(req);
+    if (!authResult) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { user } = authResult;
     const { searchParams } = new URL(req.url);
 
     // Build query
@@ -25,7 +24,7 @@ export async function GET(req: NextRequest) {
     // Role-based filtering
     if (hasRole(authResult, [UserRole.DRIVER])) {
       // Drivers can only see their own attendance
-      const driver = await Driver.findOne({ userId: user.id });
+      const driver = await Driver.findOne({ userId: authResult.userId });
       if (!driver) {
         return NextResponse.json({ error: 'Driver profile not found' }, { status: 404 });
       }

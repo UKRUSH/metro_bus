@@ -1,6 +1,6 @@
 import { Server as HTTPServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
-import { verifyToken } from './auth/jwt';
+import { verifyAccessToken } from './auth/jwt';
 import BusLocation from './models/BusLocation';
 import dbConnect from './mongodb';
 
@@ -29,9 +29,11 @@ export function initializeSocketServer(httpServer: HTTPServer) {
 
     if (token) {
       try {
-        user = verifyToken(token);
-        socket.data.user = user;
-        console.log('Authenticated user:', user.email, 'Role:', user.role);
+        user = verifyAccessToken(token);
+        if (user) {
+          socket.data.user = user;
+          console.log('Authenticated user:', user.email, 'Role:', user.role);
+        }
       } catch (error) {
         console.error('Socket authentication failed:', error);
       }
@@ -43,7 +45,7 @@ export function initializeSocketServer(httpServer: HTTPServer) {
       
       // Drivers join their own room
       if (user.role === 'driver') {
-        socket.join(`driver:${user.id}`);
+        socket.join(`driver:${user.userId}`);
       }
     }
 
@@ -122,7 +124,7 @@ export function initializeSocketServer(httpServer: HTTPServer) {
 
         const location = await BusLocation.create({
           busId: data.busId,
-          driverId: user.id,
+          driverId: user.userId,
           location: {
             type: 'Point',
             coordinates: [data.longitude, data.latitude],

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,7 +44,7 @@ interface SearchResult {
   occupancyRate: string;
 }
 
-export default function EnhancedSearchPage() {
+function EnhancedSearchContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { tokens } = useAuth();
@@ -488,5 +488,13 @@ export default function EnhancedSearchPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function EnhancedSearchPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <EnhancedSearchContent />
+    </Suspense>
   );
 }

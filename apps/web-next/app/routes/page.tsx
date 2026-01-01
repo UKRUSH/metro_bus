@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -43,7 +43,7 @@ interface Route {
   schedules?: Schedule[];
 }
 
-export default function RoutesPage() {
+function RoutesContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [routes, setRoutes] = useState<Route[]>([]);
@@ -247,5 +247,13 @@ export default function RoutesPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function RoutesPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <RoutesContent />
+    </Suspense>
   );
 }

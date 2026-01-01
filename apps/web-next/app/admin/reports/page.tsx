@@ -322,6 +322,9 @@ export default function AdminReportsPage() {
                     Condition
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
+                    Checklist
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
                     Issues
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
@@ -338,7 +341,7 @@ export default function AdminReportsPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredReports.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={10} className="px-6 py-8 text-center text-gray-500">
                       No condition reports found
                     </td>
                   </tr>
@@ -384,6 +387,37 @@ export default function AdminReportsPage() {
                         <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getConditionBadge(report.overallCondition)}`}>
                           {report.overallCondition.charAt(0).toUpperCase() + report.overallCondition.slice(1)}
                         </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {(() => {
+                          const checklistIssues = report.checklistItems?.filter(item => item.status !== 'good') || [];
+                          const criticalItems = checklistIssues.filter(item => item.status === 'critical');
+                          const needsAttention = checklistIssues.filter(item => item.status === 'needs_attention');
+                          
+                          return (
+                            <div className="space-y-1">
+                              <div className="text-sm font-medium text-gray-900">
+                                {report.checklistItems?.filter(i => i.status === 'good').length || 0} / {report.checklistItems?.length || 0}
+                              </div>
+                              {checklistIssues.length > 0 ? (
+                                <div className="flex gap-1">
+                                  {criticalItems.length > 0 && (
+                                    <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">
+                                      {criticalItems.length} Critical
+                                    </span>
+                                  )}
+                                  {needsAttention.length > 0 && (
+                                    <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-800">
+                                      {needsAttention.length} Attention
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-green-600">✓ All Good</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4">
                         {report.issuesReported ? (

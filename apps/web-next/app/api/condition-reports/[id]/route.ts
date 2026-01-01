@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/mongodb';
-import { requireAuth } from '@/lib/auth/middleware';
+import connectDB from '@/lib/mongodb';
+import { authenticateRequest, hasRole } from '@/lib/auth/middleware';
 import ConditionReport from '@/lib/models/ConditionReport';
 import { UserRole } from '@metro/shared';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = requireAuth([UserRole.DRIVER, UserRole.ADMIN, UserRole.OWNER])(request);
-    if (!authResult.authorized || !authResult.user) {
+    const user = authenticateRequest(request);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await dbConnect();
+    await connectDB();
+    
+    const { id } = await params;
 
-    const report = await ConditionReport.findById(params.id)
+    const report = await ConditionReport.findById(id)
       .populate('driverId', 'fullName licenseNumber email mobileNumber')
       .populate('busId', 'registrationNumber busType capacity')
       .populate('reviewedBy', 'email profile.firstName profile.lastName');
@@ -38,25 +40,30 @@ export async function GET(
   }
 }
 
-export async function PATCH(
+export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = requireAuth([UserRole.ADMIN, UserRole.OWNER])(request);
-    if (!authResult.authorized || !authResult.user) {
+    const user = authenticateRequest(request);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await dbConnect();
+    if (!hasRole(user, [UserRole.ADMIN, UserRole.OWNER])) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    }
+
+    await connectDB();
 
     const body = await request.json();
+    const { id } = await params;
 
     const report = await ConditionReport.findByIdAndUpdate(
-      params.id,
+      id,
       {
         status: body.status,
-        reviewedBy: authResult.user.id,
+        reviewedBy: user.userId,
         reviewedAt: new Date(),
         reviewNotes: body.reviewNotes,
       },

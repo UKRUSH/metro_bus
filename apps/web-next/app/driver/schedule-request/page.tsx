@@ -113,7 +113,7 @@ export default function DriverScheduleRequestPage() {
       }
 
       const data = await response.json();
-      setAssignments(data.assignments || []);
+      setAssignments(data.data?.assignments || data.assignments || []);
       setNeedsDriverProfile(false);
     } catch (err: any) {
       console.error("Error fetching assignments:", err);
@@ -602,9 +602,11 @@ export default function DriverScheduleRequestPage() {
                             <p className="text-sm text-blue-600 font-medium mt-1">
                               {assignment.routeId.name}
                             </p>
-                            <p className="text-xs text-gray-500">
-                              {assignment.routeId.origin} → {assignment.routeId.destination}
-                            </p>
+                            {assignment.routeId.origin && assignment.routeId.destination && (
+                              <p className="text-xs text-gray-500">
+                                {assignment.routeId.origin} → {assignment.routeId.destination}
+                              </p>
+                            )}
                           </div>
                           {getStatusBadge(assignment.status)}
                         </div>

@@ -38,7 +38,7 @@ interface Assignment {
 
 export default function AdminScheduleAssignmentsPage() {
   const router = useRouter();
-  const { user, tokens, isAuthenticated } = useAuth();
+  const { user, tokens, isAuthenticated, isLoading: authLoading } = useAuth();
   
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,6 +53,8 @@ export default function AdminScheduleAssignmentsPage() {
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
+    if (authLoading) return;
+    
     if (!isAuthenticated) {
       router.push('/login');
       return;
@@ -64,7 +66,7 @@ export default function AdminScheduleAssignmentsPage() {
     }
 
     fetchAssignments();
-  }, [isAuthenticated, user, router, tokens, filterStatus, selectedDate]);
+  }, [authLoading, isAuthenticated, user, router, tokens, filterStatus, selectedDate]);
 
   const fetchAssignments = async () => {
     if (!tokens?.accessToken) return;
@@ -85,10 +87,14 @@ export default function AdminScheduleAssignmentsPage() {
         headers: { Authorization: `Bearer ${tokens.accessToken}` },
       });
 
-      if (!response.ok) throw new Error('Failed to fetch assignments');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch assignments');
+      }
 
       const data = await response.json();
-      setAssignments(data.data.assignments);
+      console.log('API Response:', data);
+      setAssignments(data.data?.assignments || data.assignments || []);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -97,7 +103,7 @@ export default function AdminScheduleAssignmentsPage() {
   };
 
   const handleApprove = async () => {
-    if (!selectedAssignment) return;
+    if (!selectedAssignment || !tokens) return;
     
     try {
       setProcessing(true);
@@ -127,7 +133,7 @@ export default function AdminScheduleAssignmentsPage() {
   };
 
   const handleReject = async () => {
-    if (!selectedAssignment || !rejectionReason.trim()) {
+    if (!selectedAssignment || !rejectionReason.trim() || !tokens) {
       alert('Please provide a rejection reason');
       return;
     }
@@ -180,6 +186,14 @@ export default function AdminScheduleAssignmentsPage() {
   };
 
   const getPendingCount = () => assignments.filter(a => a.status === 'pending').length;
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -320,7 +334,9 @@ export default function AdminScheduleAssignmentsPage() {
                     <p className="text-sm font-semibold text-gray-500">Route</p>
                     <p className="font-bold text-gray-900">{assignment.routeId.name}</p>
                     <p className="text-sm text-gray-600">
-                      {assignment.routeId.origin} → {assignment.routeId.destination}
+                      {assignment.routeId.origin && assignment.routeId.destination 
+                        ? `${assignment.routeId.origin} → ${assignment.routeId.destination}`
+                        : '→'}
                     </p>
                   </div>
                 </div>

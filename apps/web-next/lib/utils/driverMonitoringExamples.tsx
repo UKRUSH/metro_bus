@@ -5,6 +5,7 @@
  * with your authentication system to use real driver IDs.
  */
 
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
 // In your monitoring component:
@@ -13,7 +14,7 @@ export function DriverMonitorWithAuth() {
   
   const sendAlert = async (alertType: string) => {
     // Use real driver ID from authenticated user
-    const driverId = user?.id || user?._id;
+    const driverId = user?._id;
     
     if (!driverId) {
       console.error('No driver ID available');
@@ -50,7 +51,7 @@ export function ProtectedDriverMonitor() {
   }
 
   // Render monitoring component
-  return <DriverMonitorPage />;
+  return <div>Driver Monitor</div>;
 }
 
 /**
@@ -58,6 +59,7 @@ export function ProtectedDriverMonitor() {
  * Associate alerts with current active trip
  */
 export function DriverMonitorWithTrip() {
+  const { user } = useAuth();
   const [activeTripId, setActiveTripId] = useState<string | null>(null);
 
   const startTrip = async (routeId: string, busId: string) => {
@@ -66,7 +68,7 @@ export function DriverMonitorWithTrip() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        driverId: user?.id,
+        driverId: user?._id,
         routeId,
         busId,
         startTime: new Date(),
@@ -77,12 +79,12 @@ export function DriverMonitorWithTrip() {
     setActiveTripId(trip.id);
 
     // Start monitoring
-    startCameraAndMonitoring();
+    // startCameraAndMonitoring();
   };
 
   const sendAlertWithTrip = async (alertType: string) => {
     const alertData = {
-      driverId: user?.id,
+      driverId: user?._id,
       alertType,
       timestamp: new Date(),
       tripId: activeTripId, // Associate with active trip
@@ -102,6 +104,7 @@ export function DriverMonitorWithTrip() {
  * Include GPS coordinates with alerts
  */
 export function DriverMonitorWithLocation() {
+  const { user } = useAuth();
   const [currentLocation, setCurrentLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -124,7 +127,7 @@ export function DriverMonitorWithLocation() {
 
   const sendAlertWithLocation = async (alertType: string) => {
     const alertData = {
-      driverId: user?.id,
+      driverId: user?._id,
       alertType,
       timestamp: new Date(),
       location: currentLocation, // Include GPS coordinates
@@ -159,11 +162,12 @@ export async function fetchDriverAlerts(driverId: string) {
 import { io } from 'socket.io-client';
 
 export function DriverMonitorWithSocketIO() {
+  const { user } = useAuth();
   const socket = useRef(io());
 
   const sendAlertWithNotification = async (alertType: string) => {
     const alertData = {
-      driverId: user?.id,
+      driverId: user?._id,
       alertType,
       timestamp: new Date(),
       driverState: 'Sleeping',
@@ -178,8 +182,8 @@ export function DriverMonitorWithSocketIO() {
 
     // Emit real-time notification to supervisors
     socket.current.emit('driver-alert', {
-      driverId: user?.id,
-      driverName: user?.name,
+      driverId: user?._id,
+      driverName: `${user?.profile?.firstName} ${user?.profile?.lastName}`,
       alertType,
       timestamp: new Date(),
     });
@@ -190,26 +194,28 @@ export function DriverMonitorWithSocketIO() {
  * Example: Supervisor Dashboard Listener
  */
 export function SupervisorAlertDashboard() {
-  const [alerts, setAlerts] = useState([]);
+  const [alerts, setAlerts] = useState<any[]>([]);
   const socket = useRef(io());
 
   useEffect(() => {
     socket.current.on('driver-alert', (alert) => {
       // Show notification
-      showNotification(`Alert: ${alert.driverName} - ${alert.alertType}`);
+      // showNotification(`Alert: ${alert.driverName} - ${alert.alertType}`);
       
       // Add to alert list
-      setAlerts(prev => [alert, ...prev]);
+      setAlerts((prev: any) => [alert, ...prev]);
     });
 
-    return () => socket.current.disconnect();
+    return () => {
+      socket.current.disconnect();
+    };
   }, []);
 
   return (
     <div>
       <h2>Real-time Driver Alerts</h2>
-      {alerts.map(alert => (
-        <AlertCard key={alert.timestamp} alert={alert} />
+      {alerts.map((alert, index) => (
+        <div key={index}>{JSON.stringify(alert)}</div>
       ))}
     </div>
   );

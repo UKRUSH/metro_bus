@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     await connectDB();
 
     // Check if driver profile already exists
-    const existingDriver = await Driver.findOne({ userId: user.id });
+    const existingDriver = await Driver.findOne({ userId: user.userId });
     if (existingDriver) {
       return NextResponse.json({
         success: true,
@@ -24,17 +24,19 @@ export async function POST(req: NextRequest) {
     }
 
     // Get user details
-    const userDoc = await User.findById(user.id);
+    const userDoc = await User.findById(user.userId);
     if (!userDoc) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Create driver profile
     const driver = new Driver({
-      userId: user.id,
-      fullName: userDoc.name || userDoc.email,
+      userId: user.userId,
+      fullName: userDoc.profile?.firstName 
+        ? `${userDoc.profile.firstName} ${userDoc.profile.lastName || ''}`
+        : userDoc.email,
       licenseNumber: `DL-${Date.now()}`,
-      mobileNumber: userDoc.phone || '0000000000',
+      mobileNumber: userDoc.profile?.phone || '0000000000',
       experience: 2,
       specialization: ['city'],
       approvalStatus: 'approved',

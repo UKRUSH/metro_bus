@@ -13,6 +13,9 @@ interface Bus {
   manufacturer?: string;
   busModel?: string;
   yearOfManufacture?: number;
+  lastMaintenanceDate?: Date | string;
+  nextMaintenanceDate?: Date | string;
+  maintenanceNotes?: string;
   currentStatus: 'available' | 'in-service' | 'maintenance' | 'retired';
   chassisNumber?: string;
   engineNumber?: string;

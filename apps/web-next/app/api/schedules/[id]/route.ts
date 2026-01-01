@@ -9,12 +9,13 @@ import { updateScheduleSchema, UserRole } from '@metro/shared';
 // GET /api/schedules/:id - Get schedule details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
 
-    const schedule = await Schedule.findById(params.id)
+    const { id } = await params;
+    const schedule = await Schedule.findById(id)
       .populate('routeId', 'name code stops distance estimatedDuration fare')
       .populate('busId', 'registrationNumber capacity busType')
       .populate('driverId', 'profile.firstName profile.lastName email phone')
@@ -43,7 +44,7 @@ export async function GET(
 // PUT /api/schedules/:id - Update schedule (Admin only)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authResult = authenticateRequest(request);
@@ -71,8 +72,9 @@ export async function PUT(
       );
     }
 
+    const { id } = await params;
     // Check if schedule exists
-    const existingSchedule = await Schedule.findById(params.id);
+    const existingSchedule = await Schedule.findById(id);
     if (!existingSchedule) {
       return NextResponse.json(
         { success: false, error: 'Schedule not found' },
@@ -97,7 +99,7 @@ export async function PUT(
       const arrivalTime = validationResult.data.arrivalTime || existingSchedule.arrivalTime;
 
       const conflicts = await Schedule.find({
-        _id: { $ne: params.id },
+        _id: { $ne: id },
         busId,
         isActive: true,
         days: { $in: days },
@@ -125,7 +127,7 @@ export async function PUT(
 
     // Update schedule
     const updatedSchedule = await Schedule.findByIdAndUpdate(
-      params.id,
+      id,
       validationResult.data,
       { new: true, runValidators: true }
     )
@@ -150,7 +152,7 @@ export async function PUT(
 // DELETE /api/schedules/:id - Delete schedule (Admin only)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authResult = authenticateRequest(request);
@@ -163,8 +165,9 @@ export async function DELETE(
 
     await connectDB();
 
+    const { id } = await params;
     // Check if schedule exists
-    const schedule = await Schedule.findById(params.id);
+    const schedule = await Schedule.findById(id);
     if (!schedule) {
       return NextResponse.json(
         { success: false, error: 'Schedule not found' },
@@ -174,7 +177,7 @@ export async function DELETE(
 
     // Check if schedule has active bookings
     const futureBookings = await Booking.countDocuments({
-      scheduleId: params.id,
+      scheduleId: id,
       travelDate: { $gte: new Date() },
       status: { $in: ['pending', 'confirmed'] },
     });
@@ -190,7 +193,7 @@ export async function DELETE(
     }
 
     // Soft delete by setting isActive to false
-    await Schedule.findByIdAndUpdate(params.id, { isActive: false });
+    await Schedule.findByIdAndUpdate(id, { isActive: false });
 
     return NextResponse.json({
       success: true,

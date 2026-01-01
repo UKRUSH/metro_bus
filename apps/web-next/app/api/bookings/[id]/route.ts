@@ -6,7 +6,7 @@ import { authenticateRequest } from '@/lib/auth/middleware';
 // GET /api/bookings/:id - Get booking details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authResult = authenticateRequest(request);
@@ -19,7 +19,7 @@ export async function GET(
 
     await connectDB();
 
-    const { id } = params;
+    const { id } = await params;
     const booking = await Booking.findById(id)
       .populate('routeId', 'name code fare stops')
       .populate('scheduleId', 'departureTime arrivalTime')
@@ -64,7 +64,7 @@ export async function GET(
 // PUT /api/bookings/:id/cancel - Cancel booking
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authResult = authenticateRequest(request);
@@ -77,7 +77,8 @@ export async function PUT(
 
     await connectDB();
 
-    const booking = await Booking.findById(params.id);
+    const { id } = await params;
+    const booking = await Booking.findById(id);
 
     if (!booking) {
       return NextResponse.json(
